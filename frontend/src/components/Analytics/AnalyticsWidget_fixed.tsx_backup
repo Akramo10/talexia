@@ -1,0 +1,54 @@
+import type { Application } from '../../types';
+import { Activity, Target, Percent } from 'lucide-react';
+
+interface AnalyticsWidgetProps {
+    applications: Application[];
+}
+
+export function AnalyticsWidget({ applications }: AnalyticsWidgetProps) {
+    const totalApplied = applications.length;
+    const totalInterviews = applications.filter(
+        app => app.status === 'Interview' || app.status === 'Technical Test' || app.status === 'Offer'
+    ).length;
+
+    const interviewRatio = totalApplied > 0
+        ? Math.round((totalInterviews / totalApplied) * 100)
+        : 0;
+
+    return (
+        <div className="bg-cyber-dark border border-cyber-cyan/30 rounded p-4 shadow-[0_0_15px_rgba(0,240,255,0.05)]">
+            <h3 className="text-cyber-cyan font-bold mb-4 flex items-center gap-2 border-b border-cyber-cyan/20 pb-2">
+                <Activity className="w-5 h-5" />
+                VUE_D'ENSEMBLE_METRIQUES
+            </h3>
+
+            <div className="flex flex-col gap-3">
+                <div className="bg-cyber-darker border border-gray-800 p-3 rounded flex justify-between items-center group relative overflow-hidden">
+                    <div className="flex flex-col">
+                        <span className="text-gray-500 text-[10px] uppercase font-mono tracking-wider">Total Envoyé</span>
+                        <span className="text-xl font-bold text-gray-200">{totalApplied}</span>
+                    </div>
+                    <Activity className="w-4 h-4 text-cyber-cyan opacity-40 group-hover:opacity-100 transition-opacity" />
+                </div>
+
+                <div className="bg-cyber-darker border border-gray-800 p-3 rounded flex justify-between items-center group relative overflow-hidden">
+                    <div className="flex flex-col">
+                        <span className="text-gray-500 text-[10px] uppercase font-mono tracking-wider">Entretiens</span>
+                        <span className="text-xl font-bold text-cyber-green">{totalInterviews}</span>
+                    </div>
+                    <Target className="w-4 h-4 text-cyber-green opacity-40 group-hover:opacity-100 transition-opacity" />
+                </div>
+
+                <div className="bg-cyber-darker border border-gray-800 p-3 rounded flex justify-between items-center group relative overflow-hidden">
+                    <div className="flex flex-col">
+                        <span className="text-gray-500 text-[10px] uppercase font-mono tracking-wider">Taux de Succès</span>
+                        <span className={`text-xl font-bold ${interviewRatio > 20 ? 'text-cyber-green' : 'text-cyber-warning'}`}>
+                            {interviewRatio}%
+                        </span>
+                    </div>
+                    <Percent className="w-4 h-4 text-cyber-warning opacity-40 group-hover:opacity-100 transition-opacity" />
+                </div>
+            </div>
+        </div>
+    );
+}

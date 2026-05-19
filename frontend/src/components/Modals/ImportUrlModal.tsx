@@ -16,6 +16,9 @@ interface ImportUrlModalProps {
         description?: string;
         benefits?: string;
         job_title?: string;
+        publication_date?: string;
+        scraped_at?: string;
+        remote_mode?: string;
     }) => void;
 }
 
@@ -43,6 +46,9 @@ export function ImportUrlModal({ onClose, onSuccess }: ImportUrlModalProps) {
                 description: res.data.description || undefined,
                 benefits: res.data.benefits || undefined,
                 job_title: res.data.job_title || undefined,
+                publication_date: res.data.publication_date || undefined,
+                scraped_at: res.data.scraped_at || undefined,
+                remote_mode: res.data.remote_mode || undefined,
             });
         } catch (err: unknown) {
             console.error("Scraping error:", err);

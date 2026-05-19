@@ -3,11 +3,12 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { Application } from '../../types';
 import axios from 'axios';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, formatDistanceToNowStrict } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { Trash2, Flag, FileText } from 'lucide-react';
+import { CalendarDays, Edit3, ExternalLink, Flag, FileText, MoreVertical, Trash2 } from 'lucide-react';
 import { DocumentManager } from '../Documents/DocumentManager';
 import { ApplicationDetailModal } from '../Modals/ApplicationDetailModal';
+import { ApplicationEditModal } from '../Modals/ApplicationEditModal';
 import { API_BASE } from '../../lib/api';
 
 interface ApplicationCardProps {
@@ -21,6 +22,8 @@ interface ApplicationCardProps {
 export function ApplicationCard({ application, onRefresh, isOverlay = false }: ApplicationCardProps) {
     const [isDocumentManagerOpen, setIsDocumentManagerOpen] = useState(false);
     const [isDetailOpen, setIsDetailOpen] = useState(false);
+    const [isEditOpen, setIsEditOpen] = useState(false);
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
 
     const {
         attributes,
@@ -65,6 +68,10 @@ export function ApplicationCard({ application, onRefresh, isOverlay = false }: A
         return txt.value;
     };
 
+    const publicationAge = application.publication_date
+        ? `Publié ${formatDistanceToNowStrict(new Date(application.publication_date), { addSuffix: true, locale: fr })}`
+        : null;
+
     return (
         <>
             <div
@@ -73,7 +80,7 @@ export function ApplicationCard({ application, onRefresh, isOverlay = false }: A
                 {...(isOverlay ? {} : attributes)}
                 {...(isOverlay ? {} : listeners)}
                 onClick={() => setIsDetailOpen(true)}
-                className={`group relative bg-slate-900 border border-slate-800 hover:border-slate-700 p-4 rounded-xl transition-all duration-200 ${isOverlay ? 'cursor-grabbing shadow-2xl' : 'cursor-grab active:cursor-grabbing'} ${isDragging && !isOverlay ? 'opacity-30 scale-95 shadow-none' : 'opacity-100 shadow-sm hover:shadow-md'}`}
+                className={`group relative bg-white/[0.045] border border-white/10 hover:border-brand-500/35 p-4 rounded-2xl transition-all duration-300 hover:-translate-y-0.5 hover:bg-white/[0.065] ${isOverlay ? 'cursor-grabbing shadow-2xl' : 'cursor-grab active:cursor-grabbing'} ${isDragging && !isOverlay ? 'opacity-30 scale-95 shadow-none' : 'opacity-100 shadow-sm hover:shadow-2xl hover:shadow-brand-500/10'}`}
             >
                 {application.is_flagged && (
                     <div className="absolute top-3 right-3">
@@ -81,12 +88,40 @@ export function ApplicationCard({ application, onRefresh, isOverlay = false }: A
                     </div>
                 )}
 
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setIsMenuOpen((value) => !value);
+                    }}
+                    className="absolute top-3 right-3 p-1.5 text-slate-600 hover:text-slate-200 hover:bg-slate-800 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
+                    title="Actions"
+                >
+                    <MoreVertical className="w-4 h-4" />
+                </button>
+
+                {isMenuOpen && (
+                    <div className="absolute right-3 top-11 z-20 w-44 rounded-xl border border-slate-700 bg-slate-900 shadow-2xl p-1" onClick={(event) => event.stopPropagation()}>
+                        <button onClick={() => { setIsEditOpen(true); setIsMenuOpen(false); }} className="w-full px-3 py-2 text-left text-xs text-slate-300 hover:bg-slate-800 rounded-lg flex items-center gap-2">
+                            <Edit3 className="w-3.5 h-3.5" /> Modifier
+                        </button>
+                        <button onClick={() => { setIsDocumentManagerOpen(true); setIsMenuOpen(false); }} className="w-full px-3 py-2 text-left text-xs text-slate-300 hover:bg-slate-800 rounded-lg flex items-center gap-2">
+                            <FileText className="w-3.5 h-3.5" /> Documents
+                        </button>
+                        {application.job_url && (
+                            <a href={application.job_url} target="_blank" rel="noopener noreferrer" className="w-full px-3 py-2 text-left text-xs text-slate-300 hover:bg-slate-800 rounded-lg flex items-center gap-2">
+                                <ExternalLink className="w-3.5 h-3.5" /> Source
+                            </a>
+                        )}
+                    </div>
+                )}
+
                 <div className="flex flex-col mb-4">
                     <h4 className="text-slate-100 font-display font-bold text-base tracking-tight mb-1 group-hover:text-brand-500 transition-colors">
-                        {decodeHTML(application.company?.name || 'Inconnue')}
+                        {decodeHTML(application.job_title || 'Poste sans titre')}
                     </h4>
+                    <p className="text-xs text-slate-500 font-semibold mb-2">{decodeHTML(application.company?.name || 'Entreprise inconnue')}</p>
                     <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 uppercase tracking-wider">
+                        <span className="text-[10px] font-bold px-2 py-1 rounded-lg bg-brand-500/10 text-cyan-200 uppercase tracking-wider border border-brand-500/10">
                             {application.type}
                         </span>
                         {application.company?.sector && (
@@ -95,6 +130,21 @@ export function ApplicationCard({ application, onRefresh, isOverlay = false }: A
                             </span>
                         )}
                     </div>
+                </div>
+
+                <div className="space-y-1.5 mb-3">
+                    {publicationAge && (
+                        <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                            <CalendarDays className="w-3.5 h-3.5" />
+                            {publicationAge}
+                        </div>
+                    )}
+                    {application.remote_mode && (
+                        <div className="text-[11px] text-slate-500">{application.remote_mode}</div>
+                    )}
+                    {application.cv_document && (
+                        <div className="text-[11px] text-brand-400 truncate">CV : {application.cv_document.display_name}</div>
+                    )}
                 </div>
 
                 <div className="flex justify-between items-center pt-3 border-t border-slate-800/50">
@@ -118,10 +168,20 @@ export function ApplicationCard({ application, onRefresh, isOverlay = false }: A
                         <button
                             onClick={(e) => {
                                 e.stopPropagation();
+                                setIsEditOpen(true);
+                            }}
+                            className="p-1.5 text-slate-600 hover:text-brand-500 hover:bg-slate-800 rounded-lg transition-colors"
+                            title="Modifier"
+                        >
+                            <Edit3 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
                                 setIsDocumentManagerOpen(true);
                             }}
                             className="p-1.5 text-slate-600 hover:text-brand-500 hover:bg-slate-800 rounded-lg transition-colors"
-                            title="Documents"
+                            title="Changer documents"
                         >
                             <FileText className="w-3.5 h-3.5" />
                         </button>
@@ -152,6 +212,18 @@ export function ApplicationCard({ application, onRefresh, isOverlay = false }: A
                 <ApplicationDetailModal
                     application={application}
                     onClose={() => setIsDetailOpen(false)}
+                    onEdit={() => {
+                        setIsDetailOpen(false);
+                        setIsEditOpen(true);
+                    }}
+                />
+            )}
+
+            {isEditOpen && (
+                <ApplicationEditModal
+                    application={application}
+                    onClose={() => setIsEditOpen(false)}
+                    onSaved={onRefresh}
                 />
             )}
         </>

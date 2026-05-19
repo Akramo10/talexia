@@ -33,15 +33,15 @@ export function KanbanColumn({ id, title, applications, onRefresh }: KanbanColum
     const itemIds = useMemo(() => applications.map(app => app.id), [applications]);
 
     return (
-        <div className="flex flex-col flex-1 min-w-[320px] h-full bg-slate-900/20 border-r border-slate-800/50 last:border-r-0">
-            <div className="px-5 py-4 flex justify-between items-center bg-slate-900/40 backdrop-blur-md sticky top-0 z-10 border-b border-slate-800/50">
+        <div className="flex flex-col flex-1 min-w-[320px] h-full bg-slate-950/20 border-r border-white/10 last:border-r-0">
+            <div className="px-5 py-4 flex justify-between items-center bg-slate-950/30 backdrop-blur-md sticky top-0 z-10 border-b border-white/10">
                 <div className="flex items-center gap-2.5">
-                    <div className={`w-2 h-2 rounded-full bg-${colorClass === 'cyber-warning' ? 'warning' : colorClass === 'cyber-blue' ? 'info' : colorClass === 'cyber-green' ? 'success' : colorClass === 'cyber-alert' ? 'danger' : 'slate-500'}`}></div>
+                    <div className={`w-2 h-2 rounded-full bg-${colorClass === 'cyber-warning' ? 'warning' : colorClass === 'cyber-blue' ? 'info' : colorClass === 'cyber-green' ? 'success' : colorClass === 'cyber-alert' ? 'danger' : 'cyan-400'} shadow-[0_0_18px_rgba(79,209,197,0.35)]`}></div>
                     <h3 className="font-display font-bold text-sm text-slate-200 tracking-tight">
                         {title}
                     </h3>
                 </div>
-                <span className="text-[10px] font-bold text-slate-500 bg-slate-800/50 px-2 py-0.5 rounded-md border border-slate-700/50">
+                <span className="text-[10px] font-bold text-slate-400 bg-white/[0.05] px-2 py-0.5 rounded-md border border-white/10">
                     {applications.length}
                 </span>
             </div>

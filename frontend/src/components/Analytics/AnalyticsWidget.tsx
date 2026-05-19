@@ -1,62 +1,65 @@
+import { useMemo, useState } from 'react';
 import type { Application } from '../../types';
-import { Activity, Target, Percent } from 'lucide-react';
+import { AnalyticsCards } from './AnalyticsCards';
+import { DashboardCharts } from './DashboardCharts';
+import { StatisticsFilters } from './StatisticsFilters';
+import type { StatsPeriod } from './StatisticsFilters';
 
 interface AnalyticsWidgetProps {
     applications: Application[];
 }
 
-export function AnalyticsWidget({ applications }: AnalyticsWidgetProps) {
-    const totalApplied = applications.filter(app => app.status !== 'Wishlist').length;
-    const totalInterviews = applications.filter(
-        app => app.status === 'Interview' || app.status === 'Technical Test' || app.status === 'Offer'
-    ).length;
+function startForPeriod(period: StatsPeriod) {
+    const now = new Date();
+    if (period === 'today') return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    if (period === 'week') {
+        const start = new Date(now);
+        start.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+        start.setHours(0, 0, 0, 0);
+        return start;
+    }
+    if (period === 'month') return new Date(now.getFullYear(), now.getMonth(), 1);
+    const start = new Date(now);
+    start.setDate(now.getDate() - 30);
+    return start;
+}
 
-    const interviewRatio = totalApplied > 0
-        ? Math.round((totalInterviews / totalApplied) * 100)
-        : 0;
+export function AnalyticsWidget({ applications }: AnalyticsWidgetProps) {
+    const [period, setPeriod] = useState<StatsPeriod>('30d');
+    const stats = useMemo(() => {
+        const start = startForPeriod(period);
+        const filtered = applications.filter(app => app.date_sent && new Date(app.date_sent) >= start);
+        const sent = filtered.filter(app => app.status !== 'Wishlist').length;
+        const responses = filtered.filter(app => ['Follow-up', 'Interview', 'Technical Test', 'Rejected', 'Offer'].includes(app.status)).length;
+        const interviews = filtered.filter(app => ['Interview', 'Technical Test'].includes(app.status)).length;
+        const rejected = filtered.filter(app => app.status === 'Rejected').length;
+        const byContract = filtered.reduce<Record<string, number>>((acc, app) => {
+            acc[app.type] = (acc[app.type] || 0) + 1;
+            return acc;
+        }, {});
+        const pipeline = applications.reduce<Record<string, number>>((acc, app) => {
+            acc[app.status] = (acc[app.status] || 0) + 1;
+            return acc;
+        }, {});
+        return {
+            sent,
+            responses,
+            responseRate: sent ? Math.round((responses / sent) * 100) : 0,
+            interviews,
+            rejected,
+            byContract,
+            pipeline,
+        };
+    }, [applications, period]);
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center gap-2 mb-2">
-                <Activity className="w-4 h-4 text-brand-500" />
-                <h3 className="text-slate-100 font-display font-medium text-sm tracking-tight">Statistiques Globales</h3>
+            <div className="flex items-center justify-between gap-3">
+                <h3 className="text-slate-100 font-display font-medium text-sm tracking-tight">Statistiques</h3>
             </div>
-
-            <div className="grid grid-cols-1 gap-4">
-                <div className="bg-slate-800/40 border border-slate-800 p-4 rounded-xl flex items-center justify-between">
-                    <div>
-                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Envoyées</p>
-                        <p className="text-2xl font-display font-bold text-white leading-tight">{totalApplied}</p>
-                    </div>
-                    <div className="w-10 h-10 bg-slate-900 rounded-lg flex items-center justify-center border border-slate-700/50">
-                        <Activity className="w-5 h-5 text-slate-400" />
-                    </div>
-                </div>
-
-                <div className="bg-slate-800/40 border border-slate-800 p-4 rounded-xl flex items-center justify-between">
-                    <div>
-                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Entretiens</p>
-                        <p className="text-2xl font-display font-bold text-success leading-tight">{totalInterviews}</p>
-                    </div>
-                    <div className="w-10 h-10 bg-slate-900 rounded-lg flex items-center justify-center border border-slate-700/50">
-                        <Target className="w-5 h-5 text-success/70" />
-                    </div>
-                </div>
-
-                <div className="bg-slate-800/40 border border-slate-800 p-4 rounded-xl flex items-center justify-between">
-                    <div>
-                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Taux de Succès</p>
-                        <div className="flex items-baseline gap-1.5">
-                            <p className={`text-2xl font-display font-bold leading-tight ${interviewRatio > 20 ? 'text-success' : 'text-warning'}`}>
-                                {interviewRatio}%
-                            </p>
-                        </div>
-                    </div>
-                    <div className="w-10 h-10 bg-slate-900 rounded-lg flex items-center justify-center border border-slate-700/50">
-                        <Percent className={`w-5 h-5 ${interviewRatio > 20 ? 'text-success/70' : 'text-warning/70'}`} />
-                    </div>
-                </div>
-            </div>
+            <StatisticsFilters period={period} onPeriodChange={setPeriod} />
+            <AnalyticsCards sent={stats.sent} responses={stats.responses} responseRate={stats.responseRate} interviews={stats.interviews} rejected={stats.rejected} />
+            <DashboardCharts byContract={stats.byContract} pipeline={stats.pipeline} />
         </div>
     );
 }

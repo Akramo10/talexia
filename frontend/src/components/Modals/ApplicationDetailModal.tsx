@@ -1,14 +1,16 @@
-import { X, ExternalLink, Building2, Briefcase, Calendar, DollarSign, FileText, MapPin } from 'lucide-react';
-import type { Application } from '../../types';
-import { format } from 'date-fns';
+import { Building2, Calendar, DollarSign, Edit3, ExternalLink, FileText, MapPin, X } from 'lucide-react';
+import { format, formatDistanceToNowStrict } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import type { ReactNode } from 'react';
+import type { Application } from '../../types';
 
 interface ApplicationDetailModalProps {
     application: Application;
     onClose: () => void;
+    onEdit: () => void;
 }
 
-export function ApplicationDetailModal({ application, onClose }: ApplicationDetailModalProps) {
+export function ApplicationDetailModal({ application, onClose, onEdit }: ApplicationDetailModalProps) {
     const formatDate = (dateStr: string | null) => {
         if (!dateStr) return '—';
         try {
@@ -18,34 +20,14 @@ export function ApplicationDetailModal({ application, onClose }: ApplicationDeta
         }
     };
 
-    const statusLabels: Record<string, string> = {
-        Wishlist: 'Liste de souhaits',
-        Applied: 'Postulé',
-        'Follow-up': 'Relance',
-        Interview: 'Entretien',
-        'Technical Test': 'Test Technique',
-        Offer: 'Offre',
-        Rejected: 'Refusé',
-    };
-
-    const statusColor: Record<string, string> = {
-        Wishlist: 'text-slate-500 border-slate-600 bg-slate-800',
-        Applied: 'text-warning border-warning/30 bg-warning/10', // Jaune
-        'Follow-up': 'text-info border-info/30 bg-info/10', // Bleu
-        Interview: 'text-success border-success/30 bg-success/10', // Vert
-        'Technical Test': 'text-purple-400 border-purple-400/30 bg-purple-400/10',
-        Offer: 'text-emerald-400 border-emerald-400/50 bg-emerald-400/10',
-        Rejected: 'text-danger border-danger/30 bg-danger/10', // Rouge
-    };
+    const publicationAge = application.publication_date
+        ? formatDistanceToNowStrict(new Date(application.publication_date), { addSuffix: true, locale: fr })
+        : null;
 
     return (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center z-50 p-4" onClick={onClose}>
-            <div
-                className="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto custom-scrollbar"
-                onClick={(e) => e.stopPropagation()}
-            >
-                {/* Header */}
-                <div className="flex justify-between items-center p-6 border-b border-slate-800 bg-slate-900/50 sticky top-0 z-10">
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto custom-scrollbar" onClick={(event) => event.stopPropagation()}>
+                <div className="flex justify-between items-center p-6 border-b border-slate-800 bg-slate-900/95 sticky top-0 z-10">
                     <div>
                         <h2 className="text-xl text-white font-display font-bold flex items-center gap-3">
                             <div className="p-2 bg-brand-500/10 rounded-lg">
@@ -55,99 +37,73 @@ export function ApplicationDetailModal({ application, onClose }: ApplicationDeta
                         </h2>
                         <p className="text-xs text-slate-500 mt-2 font-medium tracking-wide">Identifiant: {application.id}</p>
                     </div>
-                    <button onClick={onClose} className="p-2 text-slate-500 hover:text-white hover:bg-slate-800 rounded-xl transition-all">
-                        <X className="w-6 h-6" />
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button onClick={onEdit} className="p-2 text-slate-500 hover:text-white hover:bg-slate-800 rounded-xl transition-all" title="Modifier">
+                            <Edit3 className="w-5 h-5" />
+                        </button>
+                        <button onClick={onClose} className="p-2 text-slate-500 hover:text-white hover:bg-slate-800 rounded-xl transition-all">
+                            <X className="w-6 h-6" />
+                        </button>
+                    </div>
                 </div>
 
                 <div className="p-8 space-y-8">
-                    {/* Status & Type badges */}
+                    <div>
+                        <p className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">Poste</p>
+                        <h3 className="text-2xl text-white font-display font-bold">{application.job_title || 'Poste sans titre'}</h3>
+                    </div>
+
                     <div className="flex gap-3 flex-wrap">
-                        <span className={`text-xs font-bold px-3 py-1.5 rounded-lg border ${statusColor[application.status] || 'text-slate-400 border-slate-600 bg-slate-800'} uppercase tracking-wider`}>
-                            {statusLabels[application.status] || application.status}
+                        <span className="text-xs font-bold px-3 py-1.5 rounded-lg border text-slate-300 border-slate-700 bg-slate-800 uppercase tracking-wider">
+                            {application.status}
                         </span>
                         <span className="text-xs font-bold px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 border border-slate-700 uppercase tracking-wider">
                             {application.type}
                         </span>
+                        {application.remote_mode && (
+                            <span className="text-xs font-bold px-3 py-1.5 rounded-lg bg-brand-500/10 text-brand-300 border border-brand-500/20 uppercase tracking-wider">
+                                {application.remote_mode}
+                            </span>
+                        )}
                     </div>
 
-                    {/* Info grid */}
                     <div className="grid grid-cols-2 gap-5">
-                        <div className="bg-slate-800/40 rounded-xl p-4 border border-slate-700/50">
-                            <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-widest mb-2">
-                                <Briefcase className="w-4 h-4 text-slate-500" />
-                                Secteur
-                            </div>
-                            <p className="text-sm text-slate-200 font-medium">{application.company?.sector || '—'}</p>
-                        </div>
-
-                        <div className="bg-slate-800/40 rounded-xl p-4 border border-slate-700/50">
-                            <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-widest mb-2">
-                                <DollarSign className="w-4 h-4 text-slate-500" />
-                                Salaire Proposé
-                            </div>
-                            <p className="text-sm text-slate-200 font-medium">
-                                {application.salary_proposed ? `${application.salary_proposed}${application.salary_proposed.includes('€') ? '' : ' €'}` : '—'}
-                            </p>
-                        </div>
-
-                        <div className="bg-slate-800/40 rounded-xl p-4 border border-slate-700/50">
-                            <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-widest mb-2">
-                                <Calendar className="w-4 h-4 text-slate-500" />
-                                Date d'envoi
-                            </div>
-                            <p className="text-sm text-slate-200 font-medium">{formatDate(application.date_sent)}</p>
-                        </div>
-
-                        <div className="bg-slate-800/40 rounded-xl p-4 border border-slate-700/50">
-                            <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-widest mb-2">
-                                <MapPin className="w-4 h-4 text-slate-500" />
-                                Lieu
-                            </div>
-                            <p className="text-sm text-slate-200 font-medium">{application.location || '—'}</p>
-                        </div>
+                        <Info icon={<DollarSign className="w-4 h-4 text-slate-500" />} label="Salaire" value={application.salary_proposed || '—'} />
+                        <Info icon={<MapPin className="w-4 h-4 text-slate-500" />} label="Lieu" value={application.location || '—'} />
+                        <Info icon={<Calendar className="w-4 h-4 text-slate-500" />} label="Date candidature" value={formatDate(application.date_sent)} />
+                        <Info icon={<Calendar className="w-4 h-4 text-slate-500" />} label="Publication offre" value={publicationAge ? `${formatDate(application.publication_date)} (${publicationAge})` : '—'} />
                     </div>
 
-                    {/* Tech Stack */}
-                    {application.company?.tech_stack && application.company.tech_stack.length > 0 && (
+                    {(application.cv_document || application.cover_letter_document) && (
                         <div className="bg-slate-800/40 rounded-xl p-5 border border-slate-700/50">
                             <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-widest mb-3">
-                                Technologies
+                                <FileText className="w-4 h-4 text-slate-500" />
+                                Documents associés
                             </div>
-                            <div className="flex flex-wrap gap-2">
-                                {application.company.tech_stack.map((tech, i) => (
-                                    <span key={i} className="text-xs bg-slate-800 text-slate-200 px-2.5 py-1 rounded-md border border-slate-700 shadow-sm">
-                                        {tech}
-                                    </span>
-                                ))}
+                            <div className="space-y-2 text-sm text-slate-300">
+                                {application.cv_document && <p>CV : {application.cv_document.display_name}</p>}
+                                {application.cover_letter_document && <p>Lettre : {application.cover_letter_document.display_name}</p>}
                             </div>
                         </div>
                     )}
 
-                    {/* Job URL */}
                     {application.job_url && (
                         <div className="bg-slate-800/40 rounded-xl p-5 border border-slate-700/50">
                             <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-widest mb-2">
                                 <ExternalLink className="w-4 h-4 text-slate-500" />
-                                Lien de l'offre
+                                Source
                             </div>
-                            <a
-                                href={application.job_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-sm text-brand-400 hover:text-brand-300 hover:underline break-all transition-colors"
-                            >
+                            <a href={application.job_url} target="_blank" rel="noopener noreferrer" className="text-sm text-brand-400 hover:text-brand-300 hover:underline break-all transition-colors">
                                 {application.job_url}
                             </a>
                         </div>
                     )}
 
-                    {/* Raw Description */}
                     {application.raw_description && (
                         <div className="bg-slate-800/40 rounded-xl p-5 border border-slate-700/50">
                             <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-widest mb-3">
                                 <FileText className="w-4 h-4 text-slate-500" />
-                                Description de l'offre
+                                Description / notes
                             </div>
                             <div className="bg-slate-900 rounded-lg p-4 border border-slate-800">
                                 <p className="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed max-h-60 overflow-y-auto custom-scrollbar pr-3">
@@ -158,6 +114,18 @@ export function ApplicationDetailModal({ application, onClose }: ApplicationDeta
                     )}
                 </div>
             </div>
+        </div>
+    );
+}
+
+function Info({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+    return (
+        <div className="bg-slate-800/40 rounded-xl p-4 border border-slate-700/50">
+            <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-widest mb-2">
+                {icon}
+                {label}
+            </div>
+            <p className="text-sm text-slate-200 font-medium">{value}</p>
         </div>
     );
 }

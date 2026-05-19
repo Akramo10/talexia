@@ -13,9 +13,11 @@ class Settings(BaseSettings):
     google_client_secret: str = ""
     google_redirect_uri: str = "http://localhost:8000/api/v1/gmail/callback"
     google_login_client_id: str = ""
-    gmail_scopes: str = "https://www.googleapis.com/auth/gmail.send"
-    google_credentials_file: str = ""
-    gmail_token_file: str = ""
+    gmail_scopes: str = "openid,https://www.googleapis.com/auth/userinfo.email,https://www.googleapis.com/auth/gmail.send"
+    aws_access_key_id: str = ""
+    aws_secret_access_key: str = ""
+    aws_region: str = "eu-north-1"
+    aws_s3_bucket: str = "talexia-documents-prod"
     frontend_url: str = "http://localhost:5173"
     default_email_send_delay_seconds: int = 60
 

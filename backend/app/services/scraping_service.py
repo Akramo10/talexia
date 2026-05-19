@@ -2,6 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 import re
 import json
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 
@@ -127,6 +128,8 @@ class ScrapingService:
             ld_description = None
             location = None
             salary = None
+            publication_date = None
+            remote_mode = None
 
             for script_tag in soup.find_all("script", type="application/ld+json"):
                 try:
@@ -149,6 +152,8 @@ class ScrapingService:
                     for item in expanded:
                         if item.get("@type") == "JobPosting":
                             job_title = job_title or item.get("title")
+                            publication_date = publication_date or ScrapingService._parse_publication_date(item.get("datePosted"))
+                            remote_mode = remote_mode or ScrapingService._extract_remote_from_jobposting(item)
                             
                             # Handle sector as string or list
                             raw_sector = item.get("industry")
@@ -285,6 +290,12 @@ class ScrapingService:
             if not salary:
                 salary = ScrapingService._extract_salary_from_text(full_clean_text)
 
+            if not publication_date:
+                publication_date = ScrapingService._extract_publication_date_from_text(full_clean_text)
+
+            if not remote_mode:
+                remote_mode = ScrapingService._detect_remote_mode(full_clean_text)
+
             # Detect contract type & sector
             all_text = f"{description} {benefits} {full_clean_text}"
             contract_type = ScrapingService._detect_contract_type(all_text)
@@ -303,6 +314,10 @@ class ScrapingService:
                 "contract_type": contract_type,
                 "sector": sector,
                 "location": location,
+                "remote_mode": remote_mode,
+                "publication_date": publication_date.isoformat() if publication_date else None,
+                "scraped_at": datetime.now(timezone.utc).isoformat(),
+                "source_url": url,
                 "salary": salary,
                 "description": description,
                 "benefits": benefits,
@@ -312,7 +327,8 @@ class ScrapingService:
             return {
                 "raw_text": f"Error extracting text: {str(e)}",
                 "company_name": None, "job_title": None, "contract_type": None,
-                "sector": None, "location": None, "salary": None,
+                "sector": None, "location": None, "remote_mode": None,
+                "publication_date": None, "scraped_at": None, "source_url": url, "salary": None,
                 "description": None, "benefits": None,
             }
 
@@ -584,6 +600,107 @@ class ScrapingService:
                         return f"{res} €"
                 return res
 
+        return None
+
+    @staticmethod
+    def _parse_publication_date(value: Optional[str]) -> Optional[datetime]:
+        if not value:
+            return None
+        raw = str(value).strip()
+        if not raw:
+            return None
+
+        relative = ScrapingService._parse_relative_date(raw)
+        if relative:
+            return relative
+
+        try:
+            parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+            return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+        except ValueError:
+            pass
+
+        months = {
+            "janvier": 1, "fevrier": 2, "février": 2, "mars": 3, "avril": 4,
+            "mai": 5, "juin": 6, "juillet": 7, "aout": 8, "août": 8,
+            "septembre": 9, "octobre": 10, "novembre": 11, "decembre": 12, "décembre": 12,
+            "jan": 1, "fev": 2, "fév": 2, "avr": 4, "juil": 7, "sept": 9, "dec": 12, "déc": 12,
+        }
+        match = re.search(r"(\d{1,2})\s+([A-Za-zÀ-ÿ]+)\s+(\d{4})", raw, re.IGNORECASE)
+        if match:
+            month = months.get(match.group(2).lower())
+            if month:
+                return datetime(int(match.group(3)), month, int(match.group(1)), tzinfo=timezone.utc)
+
+        for fmt in ("%d/%m/%Y", "%d-%m-%Y", "%Y/%m/%d"):
+            try:
+                return datetime.strptime(raw, fmt).replace(tzinfo=timezone.utc)
+            except ValueError:
+                continue
+        return None
+
+    @staticmethod
+    def _parse_relative_date(text: str) -> Optional[datetime]:
+        lowered = text.lower()
+        now = datetime.now(timezone.utc)
+        if any(token in lowered for token in ["aujourd'hui", "today", "just now", "a l'instant", "à l'instant"]):
+            return now
+        if any(token in lowered for token in ["hier", "yesterday"]):
+            return now - timedelta(days=1)
+
+        match = re.search(r"(?:il y a|posted|published)\s*(\d+)\s*(minute|heure|jour|semaine|mois|day|week|month|hour)s?", lowered)
+        if not match:
+            match = re.search(r"(\d+)\s*(minute|heure|jour|semaine|mois|day|week|month|hour)s?\s*(?:ago|avant)", lowered)
+        if not match:
+            return None
+
+        amount = int(match.group(1))
+        unit = match.group(2)
+        if unit.startswith("minute"):
+            return now - timedelta(minutes=amount)
+        if unit.startswith(("heure", "hour")):
+            return now - timedelta(hours=amount)
+        if unit.startswith(("jour", "day")):
+            return now - timedelta(days=amount)
+        if unit.startswith(("semaine", "week")):
+            return now - timedelta(weeks=amount)
+        if unit.startswith(("mois", "month")):
+            return now - timedelta(days=amount * 30)
+        return None
+
+    @staticmethod
+    def _extract_publication_date_from_text(text: str) -> Optional[datetime]:
+        patterns = [
+            r"(il y a\s+\d+\s+(?:minutes?|heures?|jours?|semaines?|mois))",
+            r"((?:posted|published)\s+\d+\s+(?:minutes?|hours?|days?|weeks?|months?)\s+ago)",
+            r"publi[ée]e?\s+(?:le\s+)?(\d{1,2}\s+[A-Za-zÀ-ÿ]+\s+\d{4})",
+            r"publi[ée]e?\s+(?:le\s+)?(\d{1,2}[/-]\d{1,2}[/-]\d{4})",
+        ]
+        for pattern in patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                parsed = ScrapingService._parse_publication_date(match.group(1))
+                if parsed:
+                    return parsed
+        return None
+
+    @staticmethod
+    def _extract_remote_from_jobposting(item: dict) -> Optional[str]:
+        if item.get("jobLocationType") == "TELECOMMUTE":
+            return "Remote"
+        if item.get("applicantLocationRequirements"):
+            return "Remote"
+        return None
+
+    @staticmethod
+    def _detect_remote_mode(text: str) -> Optional[str]:
+        lowered = text.lower()
+        if any(token in lowered for token in ["hybride", "hybrid"]):
+            return "Hybrid"
+        if any(token in lowered for token in ["teletravail", "télétravail", "remote", "full remote", "a distance", "à distance"]):
+            return "Remote"
+        if any(token in lowered for token in ["sur site", "on-site", "presentiel", "présentiel"]):
+            return "On-site"
         return None
 
     # ============================================================

@@ -16,6 +16,11 @@ export interface Recipient {
 export interface Attachment {
   id: string;
   campaign_id: string;
+  user_id: string | null;
+  original_filename: string | null;
+  s3_key: string | null;
+  mime_type: string | null;
+  size: number | null;
   file_name: string;
   file_path: string;
   content_type: string | null;

@@ -75,7 +75,8 @@ export function LoginPage({ onRegister }: { onRegister: () => void }) {
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6">
       <form onSubmit={submit} className="w-full max-w-md bg-slate-900/70 border border-slate-800 rounded-2xl p-8 shadow-xl">
-        <h1 className="text-2xl font-bold text-white">PathFinder</h1>
+        <h1 className="text-2xl font-bold text-white">Telxia</h1>
+        <p className="text-sm text-slate-500 mt-1">Votre chemin vers la réussite.</p>
         <p className="text-sm text-slate-500 mt-1">Connectez-vous à votre espace candidatures.</p>
         <div className="mt-8 space-y-4">
           <label className="block">

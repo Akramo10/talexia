@@ -1,5 +1,4 @@
 import asyncio
-import os
 import re
 from datetime import datetime, timezone
 from uuid import UUID
@@ -19,6 +18,7 @@ from app.schemas.campaign import (
     BulkCreateRecipientsRequest,
     BulkCreateRecipientsResponse,
     CampaignLogResponse,
+    EmailAttachmentDownloadResponse,
     EmailAttachmentResponse,
     EmailCampaignCreate,
     EmailCampaignResponse,
@@ -29,6 +29,7 @@ from app.schemas.campaign import (
     ImportRecipientsResponse,
     SendCampaignRequest,
 )
+from app.services.s3_service import S3Service
 from app.services.campaign_log_service import CampaignLogService
 from app.services.campaign_sender import CampaignSender
 from app.services.campaign_service import CampaignService
@@ -115,8 +116,9 @@ async def delete_campaign(
     if campaign.status == CampaignStatus.SENDING:
         raise HTTPException(status_code=409, detail="Cancel the campaign before deleting it")
     for attachment in campaign.attachments:
-        if os.path.exists(attachment.file_path):
-            os.remove(attachment.file_path)
+        s3_key = attachment.s3_key or attachment.file_path
+        if s3_key:
+            S3Service.delete_file_from_s3(s3_key)
     await db.delete(campaign)
     await db.commit()
     return {"ok": True}
@@ -300,6 +302,18 @@ async def delete_attachment(
     await CampaignService.get_campaign(db, campaign_id, current_user.id)
     await CampaignService.delete_attachment(db, campaign_id, attachment_id)
     return {"ok": True}
+
+
+@router.get("/{campaign_id}/attachments/{attachment_id}/download", response_model=EmailAttachmentDownloadResponse)
+async def download_attachment(
+    campaign_id: UUID,
+    attachment_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await CampaignService.get_campaign(db, campaign_id, current_user.id)
+    url = await CampaignService.get_attachment_download_url(db, campaign_id, attachment_id)
+    return EmailAttachmentDownloadResponse(url=url, expires_in=900)
 
 
 @router.post("/{campaign_id}/send", response_model=EmailCampaignResponse)

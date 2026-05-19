@@ -1,5 +1,6 @@
-import os
-import shutil
+import logging
+import re
+import uuid
 from uuid import UUID
 
 from fastapi import HTTPException, UploadFile
@@ -16,10 +17,28 @@ from app.models.email_campaign import (
     RecipientStatus,
 )
 from app.schemas.campaign import EmailCampaignCreate, EmailCampaignUpdate, EmailRecipientCreate, EmailRecipientUpdate
+from app.services.s3_service import S3Service
+
+logger = logging.getLogger(__name__)
 
 
-ATTACHMENT_DIR = "campaign_attachments"
-os.makedirs(ATTACHMENT_DIR, exist_ok=True)
+def _safe_filename(filename: str | None) -> str:
+    name = (filename or "attachment").strip().replace("\\", "-").replace("/", "-")
+    name = re.sub(r"[^A-Za-z0-9._ -]+", "-", name)
+    name = re.sub(r"\s+", "-", name).strip(".- ")
+    return name or "attachment"
+
+
+def upload_campaign_attachment_to_s3(user_id: UUID, campaign_id: UUID, file: UploadFile) -> tuple[str, str, int, str | None]:
+    original_filename = file.filename or "attachment"
+    safe_name = _safe_filename(original_filename)
+    s3_key = f"users/{user_id}/campaigns/{campaign_id}/attachments/{uuid.uuid4()}-{safe_name}"
+    content_type = file.content_type or "application/octet-stream"
+    file.file.seek(0, 2)
+    size = file.file.tell()
+    file.file.seek(0)
+    S3Service.upload_fileobj_to_s3(file.file, s3_key, content_type)
+    return safe_name, s3_key, size, content_type
 
 
 class CampaignService:
@@ -117,20 +136,28 @@ class CampaignService:
 
     @staticmethod
     async def save_attachment(db: AsyncSession, campaign: EmailCampaign, file: UploadFile, label: str | None = None) -> EmailAttachment:
-        safe_name = "".join(c for c in (label or file.filename or "attachment") if c.isalnum() or c in ("-", "_", ".", " ")).strip()
-        if not safe_name:
-            safe_name = "attachment"
-        unique_name = f"{campaign.id}_{safe_name}"
-        file_path = os.path.join(ATTACHMENT_DIR, unique_name)
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        display_name = _safe_filename(label or file.filename)
+        safe_name, s3_key, size, content_type = upload_campaign_attachment_to_s3(campaign.user_id, campaign.id, file)
+        original_filename = file.filename or display_name
+        logger.info(
+            "Campaign attachment uploaded: user_id=%s campaign_id=%s key=%s size=%s",
+            campaign.user_id,
+            campaign.id,
+            s3_key,
+            size,
+        )
 
         attachment = EmailAttachment(
             campaign_id=campaign.id,
-            file_name=safe_name,
-            file_path=file_path,
-            content_type=file.content_type,
-            size_bytes=os.path.getsize(file_path),
+            user_id=campaign.user_id,
+            original_filename=original_filename,
+            s3_key=s3_key,
+            mime_type=content_type,
+            size=size,
+            file_name=display_name or safe_name,
+            file_path=s3_key,
+            content_type=content_type,
+            size_bytes=size,
         )
         db.add(attachment)
         await db.commit()
@@ -150,7 +177,15 @@ class CampaignService:
     @classmethod
     async def delete_attachment(cls, db: AsyncSession, campaign_id: UUID, attachment_id: UUID) -> None:
         attachment = await cls.get_attachment(db, campaign_id, attachment_id)
-        if os.path.exists(attachment.file_path):
-            os.remove(attachment.file_path)
+        s3_key = attachment.s3_key or attachment.file_path
+        if s3_key:
+            S3Service.delete_file_from_s3(s3_key)
         await db.delete(attachment)
         await db.commit()
+
+    @classmethod
+    async def get_attachment_download_url(cls, db: AsyncSession, campaign_id: UUID, attachment_id: UUID, expires_in: int = 900) -> str:
+        attachment = await cls.get_attachment(db, campaign_id, attachment_id)
+        s3_key = attachment.s3_key or attachment.file_path
+        filename = attachment.original_filename or attachment.file_name
+        return S3Service.generate_presigned_download_url(s3_key, filename, expires_in=expires_in)

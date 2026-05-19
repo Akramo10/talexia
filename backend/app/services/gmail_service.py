@@ -37,6 +37,27 @@ class GmailService:
             await db.refresh(token)
         return build("gmail", "v1", credentials=credentials)
 
+    @classmethod
+    async def get_connected_email(cls, db: AsyncSession, token: GmailToken) -> str | None:
+        credentials = cls._credentials(token)
+        if credentials.expired and credentials.refresh_token:
+            credentials.refresh(Request())
+            token.access_token = credentials.token
+            token.refresh_token = credentials.refresh_token or token.refresh_token
+            token.expires_at = credentials.expiry.replace(tzinfo=timezone.utc) if credentials.expiry else None
+            await db.commit()
+            await db.refresh(token)
+
+        try:
+            profile = build("oauth2", "v2", credentials=credentials).userinfo().get().execute()
+            if profile.get("email"):
+                return profile["email"]
+        except Exception:
+            pass
+
+        profile = build("gmail", "v1", credentials=credentials).users().getProfile(userId="me").execute()
+        return profile.get("emailAddress")
+
     @staticmethod
     def create_message(to: str, subject: str, body_text: str, attachments: list[str] | None = None) -> dict[str, str]:
         message = EmailMessage()

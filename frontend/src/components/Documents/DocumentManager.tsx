@@ -2,20 +2,12 @@ import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import type { AxiosError } from 'axios';
 import { Upload, Download, FileText, Loader2, X, Trash2 } from 'lucide-react';
-import type { Application } from '../../types';
+import type { AppDocument, Application, DocumentType } from '../../types';
 import { API_BASE } from '../../lib/api';
 
 interface DocumentManagerProps {
     application: Application;
     onClose: () => void;
-}
-
-interface AppDocument {
-    id: string;
-    application_id: string;
-    type: 'CV' | 'LM' | 'Other';
-    version_name: string;
-    file_path: string;
 }
 
 export function DocumentManager({ application, onClose }: DocumentManagerProps) {
@@ -24,7 +16,7 @@ export function DocumentManager({ application, onClose }: DocumentManagerProps) 
     const [status, setStatus] = useState<{ type: 'error' | 'success', msg: string } | null>(null);
     const [uploading, setUploading] = useState(false);
     const [file, setFile] = useState<File | null>(null);
-    const [docType, setDocType] = useState<'CV' | 'LM' | 'Other'>('CV');
+    const [docType, setDocType] = useState<DocumentType>('CV');
     const [versionName, setVersionName] = useState('');
 
     const fetchDocuments = useCallback(async () => {
@@ -61,9 +53,9 @@ export function DocumentManager({ application, onClose }: DocumentManagerProps) 
         setUploading(true);
         const formData = new FormData();
         formData.append('application_id', application.id);
-        formData.append('type', docType);
-        formData.append('version_name', versionName.trim());
-        formData.append('file', file);
+        formData.append('document_type', docType);
+        formData.append('display_name', versionName.trim());
+        formData.append('files', file);
 
         try {
             console.log("Starting upload to:", `${API_BASE}/documents/upload`);
@@ -86,12 +78,9 @@ export function DocumentManager({ application, onClose }: DocumentManagerProps) 
 
     const handleDownload = async (docId: string, filename: string) => {
         try {
-            const response = await axios.get(`${API_BASE}/documents/download/${docId}`, {
-                responseType: 'blob'
-            });
-            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const response = await axios.get<{ url: string }>(`${API_BASE}/documents/download/${docId}`);
             const link = document.createElement('a');
-            link.href = url;
+            link.href = response.data.url;
             link.setAttribute('download', filename);
             document.body.appendChild(link);
             link.click();
@@ -151,11 +140,13 @@ export function DocumentManager({ application, onClose }: DocumentManagerProps) 
                                 <select
                                     className="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded-xl p-3 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 focus:outline-none transition-all"
                                     value={docType}
-                                    onChange={(e) => setDocType(e.target.value as 'CV' | 'LM' | 'Other')}
+                                    onChange={(e) => setDocType(e.target.value as DocumentType)}
                                 >
                                     <option value="CV">CV</option>
-                                    <option value="LM">Lettre de Motivation (LM)</option>
-                                    <option value="Other">Autre</option>
+                                    <option value="Lettre motivation">Lettre de Motivation</option>
+                                    <option value="Portfolio">Portfolio</option>
+                                    <option value="Certificat">Certificat</option>
+                                    <option value="Autre">Autre</option>
                                 </select>
                             </div>
                             <div className="space-y-2">
@@ -228,17 +219,17 @@ export function DocumentManager({ application, onClose }: DocumentManagerProps) 
                                             </div>
                                             <div>
                                                 <div className="flex items-center gap-2 mb-0.5">
-                                                    <span className="text-sm font-bold text-slate-200">{doc.type}</span>
-                                                    <span className="text-slate-500 text-xs px-2 py-0.5 bg-slate-800 rounded-full border border-slate-700">v: {doc.version_name}</span>
+                                                    <span className="text-sm font-bold text-slate-200">{doc.document_type}</span>
+                                                    <span className="text-slate-500 text-xs px-2 py-0.5 bg-slate-800 rounded-full border border-slate-700">{doc.display_name}</span>
                                                 </div>
                                                 <div className="text-xs text-slate-400 truncate max-w-[200px] md:max-w-[300px]">
-                                                    {doc.file_path.split(/[/\\]/).pop()}
+                                                    {doc.original_filename}
                                                 </div>
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-2">
                                             <button
-                                                onClick={() => handleDownload(doc.id, doc.file_path.split(/[/\\]/).pop() || 'téléchargement')}
+                                                onClick={() => handleDownload(doc.id, doc.original_filename || 'telechargement')}
                                                 className="p-2.5 text-slate-400 hover:text-brand-400 bg-slate-900 border border-slate-800 hover:border-brand-500/30 rounded-lg transition-all shadow-sm"
                                                 title="Télécharger"
                                             >

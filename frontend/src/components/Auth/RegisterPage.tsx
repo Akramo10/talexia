@@ -22,7 +22,8 @@ export function RegisterPage({ onLogin }: { onLogin: () => void }) {
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6">
       <form onSubmit={submit} className="w-full max-w-md bg-slate-900/70 border border-slate-800 rounded-2xl p-8 shadow-xl">
-        <h1 className="text-2xl font-bold text-white">Créer un compte</h1>
+        <h1 className="text-2xl font-bold text-white">Créer un compte Telxia</h1>
+        <p className="text-sm text-slate-500 mt-1">Votre chemin vers la réussite.</p>
         <div className="mt-8 space-y-4">
           <input className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-3 outline-none text-slate-100" placeholder="Nom complet" value={fullName} onChange={(e) => setFullName(e.target.value)} />
           <input className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-3 outline-none text-slate-100" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} type="email" required />

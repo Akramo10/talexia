@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { useEffect, useMemo, useState } from 'react';
-import { Trash2, Upload, Wifi } from 'lucide-react';
+import { Download, LogOut, MailCheck, Trash2, Upload, Wifi } from 'lucide-react';
 import { API_BASE } from '../../lib/api';
 import { CampaignDetails } from './CampaignDetails';
 import { CampaignLiveLogs } from './CampaignLiveLogs';
@@ -33,6 +33,7 @@ export function CandidatureSpontanee() {
   const [body, setBody] = useState(emptyBody);
   const [delaySeconds, setDelaySeconds] = useState(60);
   const [gmailConnected, setGmailConnected] = useState(false);
+  const [connectedEmail, setConnectedEmail] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   const [selectedRecipients, setSelectedRecipients] = useState<string[]>([]);
 
@@ -48,6 +49,7 @@ export function CandidatureSpontanee() {
     ]);
     setCampaigns(campaignRes.data);
     setGmailConnected(gmailRes.data.connected);
+    setConnectedEmail(gmailRes.data.connected_email ?? null);
   };
 
   useEffect(() => {
@@ -140,9 +142,15 @@ export function CandidatureSpontanee() {
     return selected;
   };
 
-  const importEmailSenderToken = async () => {
-    await axios.post(`${API_BASE}/gmail/import-local-token`);
-    setMessage('Token Gmail de email sender importé.');
+  const connectGmail = async () => {
+    const res = await axios.get(`${API_BASE}/gmail/connect`);
+    window.location.href = res.data.authorization_url;
+  };
+
+  const disconnectGmail = async () => {
+    if (!window.confirm('Déconnecter Gmail pour votre compte Telxia ?')) return;
+    await axios.delete(`${API_BASE}/gmail/disconnect`);
+    setMessage('Gmail déconnecté pour votre compte.');
     await refresh();
   };
 
@@ -173,6 +181,12 @@ export function CandidatureSpontanee() {
     await axios.delete(`${API_BASE}/campaigns/${selected.id}/attachments/${attachmentId}`);
     setMessage('Pièce jointe supprimée.');
     await refresh();
+  };
+
+  const downloadAttachment = async (attachmentId: string) => {
+    if (!selected) return;
+    const res = await axios.get(`${API_BASE}/campaigns/${selected.id}/attachments/${attachmentId}/download`);
+    window.open(res.data.url, '_blank', 'noopener,noreferrer');
   };
 
   const addRecipient = async () => {
@@ -276,10 +290,18 @@ export function CandidatureSpontanee() {
           <h2 className="text-2xl font-bold text-white">Candidature spontanée</h2>
           <p className="text-sm text-slate-500">Mini CRM emailing avec brouillons, destinataires, logs et contrôle d’envoi.</p>
         </div>
-        <button onClick={importEmailSenderToken} className={`px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 ${gmailConnected ? 'bg-success/10 text-success' : 'bg-slate-800 text-slate-200 hover:bg-slate-700'}`}>
-          <Wifi className="w-4 h-4" />
-          {gmailConnected ? 'Gmail connecté' : 'Utiliser email sender'}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button onClick={connectGmail} className={`px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 ${gmailConnected ? 'bg-success/10 text-success' : 'bg-slate-800 text-slate-200 hover:bg-slate-700'}`}>
+            {gmailConnected ? <MailCheck className="w-4 h-4" /> : <Wifi className="w-4 h-4" />}
+            {gmailConnected ? `Gmail connecté${connectedEmail ? ` : ${connectedEmail}` : ''}` : 'Connecter Gmail'}
+          </button>
+          {gmailConnected && (
+            <button onClick={disconnectGmail} className="px-3 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 bg-slate-800 text-slate-300 hover:bg-danger/20 hover:text-danger">
+              <LogOut className="w-4 h-4" />
+              Déconnecter
+            </button>
+          )}
+        </div>
       </div>
 
       {message && <p className="text-sm text-slate-400 bg-slate-900/50 border border-slate-800 rounded-xl px-4 py-3">{message}</p>}
@@ -335,34 +357,35 @@ export function CandidatureSpontanee() {
           )}
 
           {activeTab === 'attachments' && (
-            <section className="bg-slate-900/40 border border-slate-800 rounded-2xl p-5">
+            <section className="premium-surface rounded-3xl p-6">
               <h3 className="text-lg font-bold text-white">Pièces jointes</h3>
-              <p className="text-sm text-slate-500 mb-4">Ajoutez un CV, une lettre de motivation ou tout document utile.</p>
+              <p className="text-sm text-slate-500 mb-4">Ajoutez un CV, une lettre de motivation ou tout document utile. Les fichiers sont stockés dans Amazon S3.</p>
               {!selected && (
                 <div className="mb-4 bg-warning/10 border border-warning/30 rounded-2xl p-4 text-warning text-sm">
                   Vous devez enregistrer la campagne avant d’ajouter des pièces jointes.
                   <button onClick={saveCampaign} className="ml-3 bg-warning text-slate-950 font-semibold rounded-lg px-3 py-1">Enregistrer maintenant</button>
                 </div>
               )}
-              <label className={`inline-flex items-center gap-2 font-semibold rounded-xl px-3 py-2 ${selected ? 'bg-slate-800 hover:bg-slate-700 text-slate-100 cursor-pointer' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}>
+              <label className={`inline-flex items-center gap-2 font-semibold rounded-2xl px-4 py-3 transition-all ${selected ? 'bg-brand-600 hover:bg-brand-500 text-white cursor-pointer shadow-lg shadow-brand-600/15' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}>
                 <Upload className="w-4 h-4" /> Ajouter une pièce jointe
                 <input disabled={!selected} type="file" className="hidden" onChange={(e) => uploadAttachment(e.target.files?.[0] ?? null)} />
               </label>
-              <div className="mt-4 flex flex-wrap gap-2">
+              <div className="mt-5 grid gap-3 sm:grid-cols-2">
                 {(selected?.attachments ?? []).map((attachment) => (
-                  <span key={attachment.id} className="text-xs px-2 py-1 rounded-lg bg-slate-800 text-slate-300 inline-flex items-center gap-2">
-                    {attachment.file_name}
-                    <button
-                      type="button"
-                      title="Supprimer la pièce jointe"
-                      onClick={() => deleteAttachment(attachment.id, attachment.file_name)}
-                      className="text-slate-500 hover:text-danger"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </span>
+                  <div key={attachment.id} className="rounded-2xl border border-white/10 bg-white/[0.05] p-4 text-sm text-slate-300">
+                    <div className="font-semibold text-white">{attachment.original_filename || attachment.file_name}</div>
+                    <div className="mt-1 text-xs text-slate-500">{attachment.mime_type || attachment.content_type || 'application/octet-stream'} · {Math.round(((attachment.size ?? attachment.size_bytes ?? 0) / 1024) * 10) / 10} Ko</div>
+                    <div className="mt-3 flex gap-2">
+                      <button type="button" title="Télécharger" onClick={() => downloadAttachment(attachment.id)} className="inline-flex items-center gap-1.5 rounded-xl bg-slate-800 px-3 py-2 text-xs font-bold text-slate-100 hover:bg-slate-700">
+                        <Download className="w-3.5 h-3.5" /> Télécharger
+                      </button>
+                      <button type="button" title="Supprimer" onClick={() => deleteAttachment(attachment.id, attachment.file_name)} className="inline-flex items-center gap-1.5 rounded-xl bg-danger/10 px-3 py-2 text-xs font-bold text-danger hover:bg-danger/20">
+                        <Trash2 className="w-3.5 h-3.5" /> Supprimer
+                      </button>
+                    </div>
+                  </div>
                 ))}
-                {(!selected || selected.attachments.length === 0) && <p className="text-sm text-slate-500">Aucune pièce jointe.</p>}
+                {(!selected || selected.attachments.length === 0) && <p className="text-sm text-slate-500">Aucune pièce jointe pour cette campagne.</p>}
               </div>
             </section>
           )}

@@ -72,6 +72,11 @@ class EmailRecipientResponse(BaseModel):
 class EmailAttachmentResponse(BaseModel):
     id: UUID
     campaign_id: UUID
+    user_id: Optional[UUID] = None
+    original_filename: Optional[str] = None
+    s3_key: Optional[str] = None
+    mime_type: Optional[str] = None
+    size: Optional[int] = None
     file_name: str
     file_path: str
     content_type: Optional[str] = None
@@ -79,6 +84,11 @@ class EmailAttachmentResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class EmailAttachmentDownloadResponse(BaseModel):
+    url: str
+    expires_in: int
 
 
 class EmailCampaignResponse(EmailCampaignBase):
@@ -112,6 +122,7 @@ class SendCampaignRequest(BaseModel):
 
 class GmailStatusResponse(BaseModel):
     connected: bool
+    connected_email: Optional[EmailStr] = None
     expires_at: Optional[datetime] = None
     scopes: list[str] = []
 

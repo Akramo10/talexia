@@ -75,6 +75,11 @@ class EmailAttachment(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     campaign_id = Column(UUID(as_uuid=True), ForeignKey("email_campaigns.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    original_filename = Column(String, nullable=True)
+    s3_key = Column(String, nullable=True)
+    mime_type = Column(String, nullable=True)
+    size = Column(Integer, nullable=True)
     file_name = Column(String, nullable=False)
     file_path = Column(String, nullable=False)
     content_type = Column(String, nullable=True)
@@ -110,5 +115,8 @@ class GmailToken(Base):
     client_secret = Column(Text, nullable=False)
     scopes = Column(Text, nullable=False)
     expires_at = Column(DateTime(timezone=True), nullable=True)
+    connected_email = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
     user = relationship("User", back_populates="gmail_token")

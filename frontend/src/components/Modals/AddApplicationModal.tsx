@@ -4,11 +4,12 @@ import type { AxiosError } from 'axios';
 import { Loader2, X, Plus } from 'lucide-react';
 import type { ApplicationStatus, ApplicationType } from '../../types';
 import { API_BASE } from '../../lib/api';
+import { DocumentSelector } from '../Documents/DocumentSelector';
 
 interface AddApplicationModalProps {
     onClose: () => void;
     onSuccess: () => void;
-    initialData?: { job_url?: string; raw_description?: string; company_name?: string; contract_type?: string; sector?: string; location?: string; salary?: string; description?: string; benefits?: string; job_title?: string };
+    initialData?: { job_url?: string; raw_description?: string; company_name?: string; contract_type?: string; sector?: string; location?: string; salary?: string; description?: string; benefits?: string; job_title?: string; publication_date?: string; scraped_at?: string; remote_mode?: string };
 }
 
 interface Company {
@@ -27,11 +28,16 @@ export function AddApplicationModal({ onClose, onSuccess, initialData }: AddAppl
     const [newCompanySector, setNewCompanySector] = useState(initialData?.sector || '');
 
     const [status, setStatus] = useState<ApplicationStatus>('Wishlist');
+    const [jobTitle, setJobTitle] = useState(initialData?.job_title || '');
     const [type, setType] = useState<ApplicationType>((initialData?.contract_type as ApplicationType) || 'Alternance');
     const [salary, setSalary] = useState(initialData?.salary || '');
     const [location, setLocation] = useState(initialData?.location || '');
+    const [remoteMode, setRemoteMode] = useState(initialData?.remote_mode || '');
+    const [publicationDate, setPublicationDate] = useState(initialData?.publication_date ? initialData.publication_date.slice(0, 10) : '');
     const [jobUrl, setJobUrl] = useState(initialData?.job_url || '');
     const [rawDesc, setRawDesc] = useState(initialData?.raw_description || '');
+    const [cvDocumentId, setCvDocumentId] = useState('');
+    const [coverLetterDocumentId, setCoverLetterDocumentId] = useState('');
     const [urlExists, setUrlExists] = useState(false);
 
     useEffect(() => {
@@ -56,8 +62,10 @@ export function AddApplicationModal({ onClose, onSuccess, initialData }: AddAppl
             try {
                 const res = await axios.get(`${API_BASE}/companies/`);
                 setCompanies(res.data);
-                if (res.data.length > 0) setSelectedCompanyId(res.data[0].id);
-                else setIsNewCompany(true);
+                if (res.data.length > 0) {
+                    setSelectedCompanyId(res.data[0].id);
+                    if (!initialData?.company_name) setNewCompanyName(res.data[0].name);
+                } else setIsNewCompany(true);
             } catch (e) {
                 console.error("Error fetching companies:", e);
                 setIsNewCompany(true);
@@ -68,6 +76,9 @@ export function AddApplicationModal({ onClose, onSuccess, initialData }: AddAppl
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!jobTitle.trim() || !newCompanyName.trim() && isNewCompany) {
+            return;
+        }
         setLoading(true);
         try {
             let finalCompanyId = selectedCompanyId;
@@ -98,11 +109,18 @@ export function AddApplicationModal({ onClose, onSuccess, initialData }: AddAppl
             await axios.post(`${API_BASE}/applications/`, {
                 company_id: finalCompanyId,
                 status,
+                job_title: jobTitle.trim(),
                 type,
+                contract_type: initialData?.contract_type || type,
                 salary_proposed: salary || null,
                 location: location || null,
+                remote_mode: remoteMode || null,
+                publication_date: publicationDate ? new Date(publicationDate).toISOString() : null,
+                scraped_at: initialData?.scraped_at || null,
                 job_url: jobUrl || null,
                 raw_description: rawDesc || null,
+                cv_document_id: cvDocumentId || null,
+                cover_letter_document_id: coverLetterDocumentId || null,
                 date_sent: new Date().toISOString(),
                 last_contact_date: new Date().toISOString()
             });
@@ -138,6 +156,38 @@ export function AddApplicationModal({ onClose, onSuccess, initialData }: AddAppl
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-8 space-y-8">
+                    <div className="space-y-5 rounded-xl border border-brand-500/20 bg-brand-500/5 p-5">
+                        <h3 className="text-sm font-bold text-slate-300 uppercase tracking-widest">Champs principaux</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-1">Intitulé du poste *</label>
+                                <input
+                                    type="text"
+                                    placeholder="Ex: Data Engineer Alternance"
+                                    className="w-full bg-slate-950 border border-slate-700 text-white rounded-xl p-4 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 focus:outline-none transition-all placeholder:text-slate-700"
+                                    required
+                                    value={jobTitle}
+                                    onChange={e => setJobTitle(e.target.value)}
+                                />
+                                {!jobTitle.trim() && <p className="text-[10px] text-danger font-semibold">Le poste est obligatoire pour suivre efficacement la candidature.</p>}
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-1">Nom de l'entreprise *</label>
+                                <input
+                                    type="text"
+                                    placeholder="Ex: Capgemini"
+                                    className="w-full bg-slate-950 border border-slate-700 text-white rounded-xl p-4 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 focus:outline-none transition-all placeholder:text-slate-700"
+                                    required
+                                    value={newCompanyName}
+                                    onChange={e => {
+                                        setNewCompanyName(e.target.value);
+                                        setIsNewCompany(true);
+                                    }}
+                                />
+                            </div>
+                        </div>
+                    </div>
+
                     {/* COMPANY SECTION */}
                     <div className="space-y-5">
                         <div className="flex justify-between items-center">
@@ -155,7 +205,7 @@ export function AddApplicationModal({ onClose, onSuccess, initialData }: AddAppl
                             <div className="grid grid-cols-2 gap-5">
                                 <div className="space-y-2">
                                     <label className="text-xs font-bold text-slate-500 uppercase tracking-widest pl-1">Nom de l'entreprise *</label>
-                                    <input type="text" className="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded-xl p-3 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 focus:outline-none transition-all" required value={newCompanyName} onChange={e => setNewCompanyName(e.target.value)} />
+                                    <input type="text" placeholder="Ex: Capgemini" className="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded-xl p-3 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 focus:outline-none transition-all placeholder:text-slate-700" required value={newCompanyName} onChange={e => setNewCompanyName(e.target.value)} />
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-xs font-bold text-slate-500 uppercase tracking-widest pl-1">Secteur</label>
@@ -165,7 +215,10 @@ export function AddApplicationModal({ onClose, onSuccess, initialData }: AddAppl
                         ) : (
                             <div className="space-y-2">
                                 <label className="text-xs font-bold text-slate-500 uppercase tracking-widest pl-1">Sélectionner entreprise *</label>
-                                <select className="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded-xl p-3 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 focus:outline-none transition-all" value={selectedCompanyId} onChange={e => setSelectedCompanyId(e.target.value)}>
+                                <select className="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded-xl p-3 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 focus:outline-none transition-all" value={selectedCompanyId} onChange={e => {
+                                    setSelectedCompanyId(e.target.value);
+                                    setNewCompanyName(companies.find(company => company.id === e.target.value)?.name || '');
+                                }}>
                                     {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                 </select>
                             </div>
@@ -193,8 +246,14 @@ export function AddApplicationModal({ onClose, onSuccess, initialData }: AddAppl
                             <div className="space-y-2">
                                 <label className="text-xs font-bold text-slate-500 uppercase tracking-widest pl-1">Type *</label>
                                 <select className="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded-xl p-3 focus:border-brand-500 focus:outline-none transition-all" value={type} onChange={e => setType(e.target.value as ApplicationType)}>
-                                    <option value="Alternance">Alternance</option>
                                     <option value="Stage">Stage</option>
+                                    <option value="Alternance">Alternance</option>
+                                    <option value="CDI">CDI</option>
+                                    <option value="CDD">CDD</option>
+                                    <option value="Freelance">Freelance</option>
+                                    <option value="Temps partiel">Temps partiel</option>
+                                    <option value="Temps plein">Temps plein</option>
+                                    <option value="Interim">Interim</option>
                                 </select>
                             </div>
                             <div className="space-y-2">
@@ -204,6 +263,19 @@ export function AddApplicationModal({ onClose, onSuccess, initialData }: AddAppl
                             <div className="space-y-2">
                                 <label className="text-xs font-bold text-slate-500 uppercase tracking-widest pl-1">Lieu / Emplacement</label>
                                 <input type="text" className="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded-xl p-3 focus:border-brand-500 focus:outline-none transition-all" value={location} onChange={e => setLocation(e.target.value)} />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest pl-1">Remote / hybride</label>
+                                <select className="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded-xl p-3 focus:border-brand-500 focus:outline-none transition-all" value={remoteMode} onChange={e => setRemoteMode(e.target.value)}>
+                                    <option value="">Non précisé</option>
+                                    <option value="Remote">Remote</option>
+                                    <option value="Hybrid">Hybride</option>
+                                    <option value="On-site">Sur site</option>
+                                </select>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest pl-1">Date publication</label>
+                                <input type="date" className="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded-xl p-3 focus:border-brand-500 focus:outline-none transition-all" value={publicationDate} onChange={e => setPublicationDate(e.target.value)} />
                             </div>
                             <div className="space-y-2 col-span-2">
                                 <label className="text-xs font-bold text-slate-500 uppercase tracking-widest pl-1">URL de l'offre</label>
@@ -222,6 +294,24 @@ export function AddApplicationModal({ onClose, onSuccess, initialData }: AddAppl
                                 <textarea rows={4} className="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded-xl p-4 focus:border-brand-500 focus:outline-none transition-all custom-scrollbar placeholder:text-slate-700" value={rawDesc} onChange={e => setRawDesc(e.target.value)} placeholder="Collez la description de l'offre ici..." />
                             </div>
                         </div>
+                    </div>
+
+                    <div className="h-px bg-slate-800/50 w-full"></div>
+
+                    <div className="space-y-5">
+                        <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Documents associés</h3>
+                        <DocumentSelector
+                            label="CV sélectionné"
+                            acceptedTypes={['CV']}
+                            selectedDocumentId={cvDocumentId}
+                            onChange={setCvDocumentId}
+                        />
+                        <DocumentSelector
+                            label="Lettre de motivation"
+                            acceptedTypes={['Lettre motivation']}
+                            selectedDocumentId={coverLetterDocumentId}
+                            onChange={setCoverLetterDocumentId}
+                        />
                     </div>
 
                     <div className="pt-4 flex justify-end items-center gap-4">

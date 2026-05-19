@@ -20,3 +20,4 @@ email-validator
 google-api-python-client
 google-auth
 google-auth-oauthlib
+boto3

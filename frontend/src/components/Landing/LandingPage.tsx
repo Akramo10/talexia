@@ -18,20 +18,34 @@ import type { ReactNode } from 'react';
 
 interface LandingPageProps {
   onLogin: () => void;
+  onPricing: () => void;
 }
 
-const DEFAULT_WHATSAPP_MESSAGE = encodeURIComponent('Bonjour, je souhaite commencer gratuitement avec Telxia.');
-const WHATSAPP_URL = import.meta.env.VITE_WHATSAPP_URL || `https://wa.me/33600000000?text=${DEFAULT_WHATSAPP_MESSAGE}`;
+const SUPPORT_PHONE = '+33 759009145';
+const WHATSAPP_URL = (import.meta.env.VITE_WHATSAPP_URL as string | undefined) || 'https://wa.me/33759009145';
+const PLAN_MESSAGES: Record<string, string> = {
+  trial_3_months: "Bonjour, je souhaite profiter de l'offre Telxia 3 mois gratuits.",
+  six_months: "Bonjour, je souhaite choisir l'offre Telxia 6 mois à 30€.",
+  twelve_months: "Bonjour, je souhaite choisir l'offre Telxia 12 mois à 50€.",
+};
 
 const navItems = [
   ['Fonctionnalités', '#fonctionnalites'],
+  ['Offres', '#offres'],
   ['Workflow', '#workflow'],
   ['Documents', '#documents'],
   ['Campagnes', '#campagnes'],
   ['FAQ', '#faq'],
 ];
 
-export function LandingPage({ onLogin }: LandingPageProps) {
+function whatsappLink(plan: string) {
+  const message = PLAN_MESSAGES[plan] || PLAN_MESSAGES.trial_3_months;
+  const separator = WHATSAPP_URL.includes('?') ? '&' : '?';
+  return `${WHATSAPP_URL}${separator}text=${encodeURIComponent(message)}`;
+}
+
+export function LandingPage({ onLogin, onPricing }: LandingPageProps) {
+
   return (
     <div className="min-h-screen overflow-hidden bg-[#F5F8F9] text-[#1C2A32]">
       <div className="pointer-events-none fixed inset-0">
@@ -57,10 +71,10 @@ export function LandingPage({ onLogin }: LandingPageProps) {
             <button onClick={onLogin} className="hidden rounded-2xl px-4 py-2.5 text-sm font-bold text-[#344D5C] transition-colors hover:bg-white sm:block">
               Se connecter
             </button>
-            <a href={WHATSAPP_URL} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-2xl bg-[#344D5C] px-4 py-2.5 text-sm font-bold text-white shadow-xl shadow-[#344D5C]/15 transition-all hover:-translate-y-0.5 hover:bg-[#4B8491]">
-              Commencer gratuitement
+            <button onClick={onPricing} className="inline-flex items-center gap-2 rounded-2xl bg-[#344D5C] px-4 py-2.5 text-sm font-bold text-white shadow-xl shadow-[#344D5C]/15 transition-all hover:-translate-y-0.5 hover:bg-[#4B8491]">
+              Essayer gratuitement
               <ArrowRight className="h-4 w-4" />
-            </a>
+            </button>
           </div>
         </nav>
       </header>
@@ -79,17 +93,17 @@ export function LandingPage({ onLogin }: LandingPageProps) {
               Telxia centralise vos candidatures, documents, relances et campagnes email pour vous aider à rester organisé et avancer plus vite vers votre prochaine opportunité.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <a href={WHATSAPP_URL} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#4B8491] px-6 py-4 text-sm font-bold text-white shadow-2xl shadow-[#4B8491]/25 transition-all hover:-translate-y-1 hover:bg-[#3F7481]">
-                Commencer gratuitement
+              <button onClick={onPricing} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#4B8491] px-6 py-4 text-sm font-bold text-white shadow-2xl shadow-[#4B8491]/25 transition-all hover:-translate-y-1 hover:bg-[#3F7481]">
+                Essayer gratuitement pendant 3 mois
                 <ArrowRight className="h-4 w-4" />
-              </a>
+              </button>
               <button onClick={onLogin} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[rgba(52,77,92,0.16)] bg-white/75 px-6 py-4 text-sm font-bold text-[#344D5C] shadow-sm transition-all hover:-translate-y-1 hover:bg-white">
-                Voir la plateforme
+                Se connecter
                 <ChevronRight className="h-4 w-4" />
               </button>
             </div>
             <div className="mt-8 grid gap-3 text-sm font-semibold text-[#526A75] sm:grid-cols-3">
-              {['Organisation en quelques minutes', 'Suivi clair de vos candidatures', 'Documents et relances centralisés'].map((item) => (
+              {['3 mois gratuits', 'Aucune carte bancaire nécessaire', 'Documents, campagnes email et analytics'].map((item) => (
                 <div key={item} className="flex items-center gap-2 rounded-2xl border border-[rgba(52,77,92,0.12)] bg-white/65 px-3 py-3">
                   <CheckCircle2 className="h-4 w-4 shrink-0 text-[#4B8491]" />
                   {item}
@@ -101,20 +115,21 @@ export function LandingPage({ onLogin }: LandingPageProps) {
           <HeroMockup />
         </section>
 
+        <PricingPreview onPricing={onPricing} />
         <ProblemSolution />
         <Workflow />
         <Features />
         <DocumentsSection />
         <CampaignsSection />
         <AnalyticsSection />
-        <WhatsAppBand />
+        <WhatsAppBand onPricing={onPricing} />
         <FAQ />
-        <FinalCTA />
+        <FinalCTA onPricing={onPricing} />
       </main>
 
-      <a href={WHATSAPP_URL} target="_blank" rel="noreferrer" className="fixed bottom-5 right-5 z-50 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-[#25D366] text-white shadow-2xl shadow-[#25D366]/25 transition-all hover:-translate-y-1" title="Demander un accès gratuit sur WhatsApp">
+      {WHATSAPP_URL && <a href={WHATSAPP_URL} target="_blank" rel="noreferrer" className="fixed bottom-5 right-5 z-50 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-[#25D366] text-white shadow-2xl shadow-[#25D366]/25 transition-all hover:-translate-y-1" title="Demander un accès gratuit sur WhatsApp">
         <MessageCircle className="h-6 w-6" />
-      </a>
+      </a>}
 
       <footer className="relative z-10 border-t border-[rgba(52,77,92,0.14)] bg-white/55 px-5 py-10">
         <div className="mx-auto flex max-w-7xl flex-col gap-6 md:flex-row md:items-center md:justify-between">
@@ -127,10 +142,145 @@ export function LandingPage({ onLogin }: LandingPageProps) {
           </div>
           <div className="flex flex-wrap gap-5 text-sm font-semibold text-[#6B7F89]">
             {navItems.map(([label, href]) => <a key={label} href={href} className="hover:text-[#344D5C]">{label}</a>)}
-            <a href={WHATSAPP_URL} target="_blank" rel="noreferrer" className="hover:text-[#344D5C]">Contact</a>
+            <a href={WHATSAPP_URL} target="_blank" rel="noreferrer" className="hover:text-[#344D5C]">Support {SUPPORT_PHONE}</a>
           </div>
         </div>
       </footer>
+    </div>
+  );
+}
+
+function PricingPreview({ onPricing }: { onPricing: () => void }) {
+  return (
+    <section id="offres" className="mx-auto max-w-7xl px-5 py-20 lg:px-8">
+      <div className="rounded-[1.75rem] border border-[rgba(52,77,92,0.14)] bg-white/80 p-8 shadow-xl shadow-[#344D5C]/8 md:p-10">
+        <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#4B8491]">Offres Telxia</p>
+        <h2 className="mt-3 font-display text-4xl font-bold text-[#1C2A32]">Choisissez votre acces avant de demarrer.</h2>
+        <p className="mt-4 max-w-2xl leading-7 text-[#526A75]">Le bouton d'essai gratuit ouvre la page offres pour clarifier le choix entre essai, 6 mois et 12 mois.</p>
+        <button type="button" onClick={onPricing} className="mt-7 inline-flex items-center justify-center gap-2 rounded-2xl bg-[#4B8491] px-6 py-4 text-sm font-bold text-white shadow-xl shadow-[#4B8491]/20 transition-all hover:-translate-y-1 hover:bg-[#344D5C]">
+          Voir les offres
+          <ArrowRight className="h-4 w-4" />
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function PricingSection({ onOfferClick }: { onOfferClick: (plan: string) => void }) {
+  const offers = [
+    {
+      plan: 'trial_3_months',
+      name: '3 mois gratuits',
+      price: '0 €',
+      detail: "Valable jusqu'au 30/06/2026",
+      cta: 'Commencer gratuitement',
+      badge: 'Offre limitée',
+      features: ['Accès complet', 'Gmail par utilisateur', 'Sans carte bancaire'],
+    },
+    {
+      plan: 'six_months',
+      name: '6 mois',
+      price: '30 €',
+      detail: 'Un semestre pour structurer votre recherche',
+      cta: "Choisir l'offre 6 mois",
+      badge: 'Offre limitée',
+      features: ['Pipeline candidatures', 'Documents centralisés', 'Campagnes email'],
+    },
+    {
+      plan: 'twelve_months',
+      name: '12 mois',
+      price: '50 €',
+      detail: 'Le meilleur rapport durée/prix',
+      cta: "Choisir l'offre 12 mois",
+      badge: 'Meilleure offre',
+      featured: true,
+      features: ['Tout Telxia pendant 1 an', 'Analytics et relances', 'Idéal alternance longue'],
+    },
+  ];
+
+  return (
+    <section id="offres" className="mx-auto max-w-7xl px-5 py-20 lg:px-8">
+      <div className="mb-10 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div className="max-w-3xl">
+          <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#4B8491]">Offres Telxia</p>
+          <h2 className="mt-3 font-display text-4xl font-bold text-[#1C2A32] md:text-5xl">Choisissez votre accès et démarrez aujourd'hui.</h2>
+        </div>
+        <p className="rounded-2xl border border-[#8BA5AD]/30 bg-white/80 px-4 py-3 text-sm font-semibold text-[#344D5C]">
+          Support : {SUPPORT_PHONE}
+        </p>
+      </div>
+      <div className="grid gap-5 lg:grid-cols-3">
+        {offers.map((offer) => (
+          <article key={offer.plan} className={`relative flex min-h-full flex-col rounded-[1.5rem] border p-6 shadow-xl transition-all hover:-translate-y-1 ${offer.featured ? 'border-[#4B8491] bg-[#344D5C] text-white shadow-[#344D5C]/20' : 'border-[rgba(52,77,92,0.14)] bg-white/82 text-[#1C2A32] shadow-[#344D5C]/8'}`}>
+            <div className={`mb-5 inline-flex w-fit rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.12em] ${offer.featured ? 'bg-[#C2D1D5] text-[#344D5C]' : 'bg-[#C2D1D5]/70 text-[#344D5C]'}`}>
+              {offer.badge}
+            </div>
+            <h3 className="font-display text-2xl font-bold">{offer.name}</h3>
+            <p className={`mt-3 font-display text-5xl font-bold ${offer.featured ? 'text-white' : 'text-[#344D5C]'}`}>{offer.price}</p>
+            <p className={`mt-3 text-sm leading-6 ${offer.featured ? 'text-[#C2D1D5]' : 'text-[#526A75]'}`}>{offer.detail}</p>
+            <div className="mt-6 grid gap-3">
+              {offer.features.map((feature) => (
+                <div key={feature} className={`flex items-center gap-2 rounded-2xl px-3 py-3 text-sm font-semibold ${offer.featured ? 'bg-white/10 text-white' : 'bg-[#F5F8F9] text-[#344D5C]'}`}>
+                  <CheckCircle2 className={`h-4 w-4 ${offer.featured ? 'text-[#C2D1D5]' : 'text-[#4B8491]'}`} />
+                  {feature}
+                </div>
+              ))}
+            </div>
+            <button onClick={() => onOfferClick(offer.plan)} className={`mt-7 inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-4 text-sm font-bold transition-all hover:-translate-y-0.5 ${offer.featured ? 'bg-white text-[#344D5C] hover:bg-[#C2D1D5]' : 'bg-[#4B8491] text-white hover:bg-[#344D5C]'}`}>
+              {offer.cta}
+              <MessageCircle className="h-4 w-4" />
+            </button>
+          </article>
+        ))}
+      </div>
+      <div className="mt-6 grid gap-3 rounded-[1.5rem] border border-[rgba(52,77,92,0.14)] bg-white/75 p-4 text-sm font-semibold text-[#344D5C] md:grid-cols-3">
+        <div>3 mois gratuits : test complet sans engagement.</div>
+        <div>6 mois : 5 EUR/mois pour aller droit au but.</div>
+        <div>12 mois : 4,17 EUR/mois, meilleur choix.</div>
+      </div>
+    </section>
+  );
+}
+
+export function PricingPage({ onLogin, onRegister, onBack }: { onLogin: () => void; onRegister: (plan?: string) => void; onBack: () => void }) {
+  const handleOfferClick = (plan: string) => {
+    if (plan === 'six_months' || plan === 'twelve_months') {
+      window.open(whatsappLink(plan), '_blank', 'noopener,noreferrer');
+      return;
+    }
+    onRegister(plan);
+  };
+
+  return (
+    <div className="min-h-screen bg-[#F5F8F9] text-[#1C2A32]">
+      <header className="sticky top-0 z-40 border-b border-[rgba(52,77,92,0.12)] bg-[#F5F8F9]/90 backdrop-blur-xl">
+        <nav className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 lg:px-8">
+          <button type="button" onClick={onBack} className="flex items-center gap-3 text-left">
+            <img src="/logo-talexia.png" alt="Telxia" className="h-12 w-12 rounded-2xl object-contain" />
+            <div>
+              <div className="font-display text-xl font-bold tracking-tight text-[#1C2A32]">Telxia.fr</div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#6B7F89]">Offres</div>
+            </div>
+          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={onLogin} className="rounded-2xl px-4 py-2.5 text-sm font-bold text-[#344D5C] transition-colors hover:bg-white">
+              Se connecter
+            </button>
+            <a href={WHATSAPP_URL} target="_blank" rel="noreferrer" className="hidden rounded-2xl border border-[#8BA5AD]/30 bg-white/75 px-4 py-2.5 text-sm font-bold text-[#344D5C] sm:inline-flex">
+              Support {SUPPORT_PHONE}
+            </a>
+          </div>
+        </nav>
+      </header>
+
+      <main>
+        <section className="mx-auto max-w-7xl px-5 pb-4 pt-14 text-center lg:px-8">
+          <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#4B8491]">Pricing Telxia</p>
+          <h1 className="mx-auto mt-3 max-w-3xl font-display text-5xl font-bold leading-tight text-[#1C2A32]">Une offre claire avant de creer votre compte.</h1>
+          <p className="mx-auto mt-5 max-w-2xl leading-7 text-[#526A75]">L'essai gratuit cree un compte Telxia. Les offres 6 mois et 12 mois ouvrent WhatsApp pour finaliser votre acces avec le support.</p>
+        </section>
+        <PricingSection onOfferClick={handleOfferClick} />
+      </main>
     </div>
   );
 }
@@ -345,16 +495,16 @@ function SplitSection(props: { id: string; eyebrow: string; title: string; text:
   );
 }
 
-function WhatsAppBand() {
+function WhatsAppBand({ onPricing }: { onPricing: () => void }) {
   return (
     <section className="mx-auto max-w-5xl px-5 py-12 text-center lg:px-8">
       <div className="rounded-[1.75rem] border border-[rgba(52,77,92,0.14)] bg-white/80 p-8 shadow-xl shadow-[#344D5C]/8">
         <h2 className="font-display text-3xl font-bold text-[#1C2A32]">Envie de tester Telxia ?</h2>
         <p className="mx-auto mt-3 max-w-2xl text-[#6B7F89]">Échangez directement avec nous sur WhatsApp et obtenez un accès de test.</p>
-        <a href={WHATSAPP_URL} target="_blank" rel="noreferrer" className="mt-6 inline-flex items-center justify-center gap-2 rounded-2xl bg-[#25D366] px-6 py-4 text-sm font-bold text-white shadow-xl shadow-[#25D366]/20 transition-all hover:-translate-y-1">
+        <button type="button" onClick={onPricing} className="mt-6 inline-flex items-center justify-center gap-2 rounded-2xl bg-[#25D366] px-6 py-4 text-sm font-bold text-white shadow-xl shadow-[#25D366]/20 transition-all hover:-translate-y-1">
           <MessageCircle className="h-5 w-5" />
           Demander un accès gratuit
-        </a>
+        </button>
       </div>
     </section>
   );
@@ -390,16 +540,16 @@ function FAQ() {
   );
 }
 
-function FinalCTA() {
+function FinalCTA({ onPricing }: { onPricing: () => void }) {
   return (
     <section className="px-5 pb-24 lg:px-8">
       <div className="mx-auto max-w-6xl rounded-[2rem] bg-[#1F313B] p-8 text-center text-white shadow-2xl shadow-[#344D5C]/20 md:p-14">
         <h2 className="font-display text-4xl font-bold md:text-5xl">Reprenez le contrôle de votre recherche d’emploi.</h2>
         <p className="mx-auto mt-5 max-w-2xl text-[#C2D1D5]">Centralisez, suivez et progressez avec une plateforme pensée pour les candidats modernes.</p>
-        <a href={WHATSAPP_URL} target="_blank" rel="noreferrer" className="mt-8 inline-flex items-center justify-center gap-2 rounded-2xl bg-[#4B8491] px-6 py-4 text-sm font-bold text-white shadow-xl shadow-[#4B8491]/25 transition-all hover:-translate-y-1">
-          Commencer gratuitement sur WhatsApp
-          <MessageCircle className="h-5 w-5" />
-        </a>
+        <button type="button" onClick={onPricing} className="mt-8 inline-flex items-center justify-center gap-2 rounded-2xl bg-[#4B8491] px-6 py-4 text-sm font-bold text-white shadow-xl shadow-[#4B8491]/25 transition-all hover:-translate-y-1">
+          Voir les offres
+          <ArrowRight className="h-5 w-5" />
+        </button>
       </div>
     </section>
   );

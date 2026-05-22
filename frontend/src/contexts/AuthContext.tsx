@@ -6,15 +6,33 @@ interface User {
   id: string;
   email: string;
   full_name: string | null;
+  phone: string | null;
   avatar_url: string | null;
+  is_admin: boolean;
+}
+
+export interface UserSubscription {
+  id: string;
+  status: 'trial' | 'active' | 'expired' | 'cancelled';
+  starts_at: string;
+  ends_at: string;
+  plan: {
+    id: string;
+    name: string;
+    duration_months: number;
+    price_eur: string;
+    is_active: boolean;
+  };
 }
 
 interface AuthContextValue {
   user: User | null;
+  subscription: UserSubscription | null;
   token: string | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, confirmPassword: string, fullName?: string) => Promise<void>;
+  register: (email: string, password: string, confirmPassword: string, fullName?: string, phone?: string, plan?: string) => Promise<void>;
+  refreshSubscription: () => Promise<void>;
   forgotPassword: (email: string) => Promise<string>;
   resetPassword: (token: string, newPassword: string, confirmPassword: string) => Promise<string>;
   googleLogin: (idToken: string) => Promise<void>;
@@ -35,6 +53,7 @@ function applyToken(token: string | null) {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [subscription, setSubscription] = useState<UserSubscription | null>(null);
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('pathfinder_token'));
   const [loading, setLoading] = useState(true);
 
@@ -45,11 +64,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     axios.get(`${API_BASE}/auth/me`)
-      .then((res) => setUser(res.data))
+      .then(async (res) => {
+        setUser(res.data);
+        const subscriptionRes = await axios.get(`${API_BASE}/subscriptions/me`);
+        setSubscription(subscriptionRes.data);
+      })
       .catch(() => {
         applyToken(null);
         setToken(null);
         setUser(null);
+        setSubscription(null);
       })
       .finally(() => setLoading(false));
   }, [token]);
@@ -60,18 +84,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     applyToken(data.access_token);
   };
 
+  const refreshSubscription = async () => {
+    const res = await axios.get(`${API_BASE}/subscriptions/me`);
+    setSubscription(res.data);
+  };
+
   const value = useMemo<AuthContextValue>(() => ({
     user,
+    subscription,
     token,
     loading,
     login: async (email, password) => {
       const res = await axios.post(`${API_BASE}/auth/login`, { email, password });
       consumeTokenResponse(res.data);
     },
-    register: async (email, password, confirmPassword, fullName) => {
-      const res = await axios.post(`${API_BASE}/auth/register`, { email, password, confirm_password: confirmPassword, full_name: fullName });
+    register: async (email, password, confirmPassword, fullName, phone, plan = 'trial_3_months') => {
+      const res = await axios.post(`${API_BASE}/auth/register`, { email, password, confirm_password: confirmPassword, full_name: fullName, phone: phone || null, plan });
       consumeTokenResponse(res.data);
+      await refreshSubscription();
     },
+    refreshSubscription,
     forgotPassword: async (email) => {
       const res = await axios.post(`${API_BASE}/auth/forgot-password`, { email });
       return res.data.message;
@@ -88,8 +120,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       applyToken(null);
       setToken(null);
       setUser(null);
+      setSubscription(null);
     },
-  }), [loading, token, user]);
+  }), [loading, subscription, token, user]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

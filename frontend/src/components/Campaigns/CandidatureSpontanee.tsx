@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, Download, LogOut, MailCheck, Pause, Play, Rocket, Square, Trash2, Upload, Wifi } from 'lucide-react';
+import { CheckCircle2, Download, Pause, Play, Rocket, Square, Trash2, Upload } from 'lucide-react';
 import { API_BASE } from '../../lib/api';
 import { CampaignDetails } from './CampaignDetails';
 import { CampaignLiveLogs } from './CampaignLiveLogs';
@@ -13,6 +13,7 @@ import { RecipientActions } from './RecipientActions';
 import { RecipientBulkAdd } from './RecipientBulkAdd';
 import { RecipientTable } from './RecipientTable';
 import type { Campaign, CampaignStatus, Recipient } from './types';
+import { GmailConnectionCard } from '../Gmail/GmailConnectionCard';
 
 const emptyBody = `Madame, Monsieur,
 
@@ -172,18 +173,6 @@ export function CandidatureSpontanee() {
       return null;
     }
     return selected;
-  };
-
-  const connectGmail = async () => {
-    const res = await axios.get(`${API_BASE}/gmail/connect`);
-    window.location.href = res.data.authorization_url;
-  };
-
-  const disconnectGmail = async () => {
-    if (!window.confirm('Déconnecter Gmail pour votre compte Telxia ?')) return;
-    await axios.delete(`${API_BASE}/gmail/disconnect`);
-    setMessage('Gmail déconnecté pour votre compte.');
-    await refresh();
   };
 
   const importRecipients = async (file: File | null) => {
@@ -357,15 +346,7 @@ export function CandidatureSpontanee() {
             <p className="mt-1 max-w-3xl text-sm text-slate-500">Un flow guidé, compact et lisible pour préparer puis envoyer vos campagnes.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <button onClick={connectGmail} className={`rounded-2xl px-4 py-3 text-sm font-bold flex items-center gap-2 ${gmailConnected ? 'bg-success/10 text-success' : 'bg-slate-800 text-slate-200 hover:bg-slate-700'}`}>
-              {gmailConnected ? <MailCheck className="h-4 w-4" /> : <Wifi className="h-4 w-4" />}
-              {gmailConnected ? `Gmail : ${connectedEmail || 'connecté'}` : 'Connecter Gmail'}
-            </button>
-            {gmailConnected && (
-              <button onClick={disconnectGmail} className="rounded-2xl bg-slate-800 px-4 py-3 text-sm font-bold text-slate-300 hover:bg-danger/20 hover:text-danger">
-                <LogOut className="inline h-4 w-4" />
-              </button>
-            )}
+            <GmailConnectionCard connected={gmailConnected} email={connectedEmail} compact onStatusChange={(connected, email) => { setGmailConnected(connected); setConnectedEmail(email); }} onMessage={setMessage} />
             <button onClick={newCampaign} className="rounded-2xl bg-brand-600 px-4 py-3 text-sm font-bold text-white shadow-xl shadow-brand-600/15 hover:bg-brand-500">
               Nouvelle campagne
             </button>

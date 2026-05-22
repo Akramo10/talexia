@@ -20,11 +20,13 @@ class User(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email = Column(String, unique=True, index=True, nullable=False)
     full_name = Column(String, nullable=True)
+    phone = Column(String, nullable=True)
     hashed_password = Column(String, nullable=True)
     google_id = Column(String, unique=True, nullable=True)
     avatar_url = Column(String, nullable=True)
     auth_provider = Column(Enum(AuthProvider, native_enum=False), default=AuthProvider.LOCAL, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
+    is_admin = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
     companies = relationship("Company", back_populates="user", cascade="all, delete-orphan")
@@ -34,3 +36,4 @@ class User(Base):
     email_campaigns = relationship("EmailCampaign", back_populates="user", cascade="all, delete-orphan")
     gmail_token = relationship("GmailToken", back_populates="user", uselist=False, cascade="all, delete-orphan")
     password_reset_tokens = relationship("PasswordResetToken", back_populates="user", cascade="all, delete-orphan")
+    subscriptions = relationship("UserSubscription", back_populates="user", cascade="all, delete-orphan")

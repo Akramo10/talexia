@@ -9,7 +9,7 @@ interface KanbanBoardProps {
 
 export function KanbanBoard({ applications, onRefresh }: KanbanBoardProps) {
     return (
-        <div className="flex gap-4 h-full overflow-x-auto pb-4">
+        <div className="flex h-full gap-4 overflow-x-auto scroll-smooth pb-4 pr-2 [scrollbar-gutter:stable]">
             {COLUMNS.map((col) => (
                 <KanbanColumn
                     key={col.id}

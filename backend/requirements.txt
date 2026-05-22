@@ -4,6 +4,7 @@ sqlalchemy[asyncio]
 asyncpg
 alembic
 python-dotenv
+python-dateutil
 pydantic-settings
 requests
 resend
@@ -14,6 +15,7 @@ pandas
 openpyxl
 fpdf
 playwright
+httpx
 passlib[bcrypt]
 bcrypt==4.0.1
 python-jose[cryptography]

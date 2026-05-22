@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Loader2, Mail } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -8,6 +8,13 @@ export function ForgotPasswordPage({ onLogin }: { onLogin: () => void }) {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = window.setTimeout(() => setCooldown((value) => Math.max(0, value - 1)), 1000);
+    return () => window.clearTimeout(timer);
+  }, [cooldown]);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -17,6 +24,7 @@ export function ForgotPasswordPage({ onLogin }: { onLogin: () => void }) {
     try {
       const responseMessage = await forgotPassword(email);
       setMessage(responseMessage);
+      setCooldown(60);
     } catch {
       setError("Impossible d'envoyer la demande pour le moment.");
     } finally {
@@ -36,11 +44,16 @@ export function ForgotPasswordPage({ onLogin }: { onLogin: () => void }) {
             <input className="w-full bg-transparent py-3 text-slate-100 outline-none" value={email} onChange={(e) => setEmail(e.target.value)} type="email" required />
           </div>
         </label>
-        {message && <p className="mt-4 rounded-xl border border-success/20 bg-success/10 px-3 py-2 text-sm text-success">{message}</p>}
+        {message && (
+          <div className="mt-4 rounded-xl border border-success/20 bg-success/10 px-3 py-2 text-sm text-success">
+            <p>{message}</p>
+            <p className="mt-1 text-xs text-slate-300">Le lien expire dans 30 minutes.</p>
+          </div>
+        )}
         {error && <p className="mt-4 text-sm text-danger">{error}</p>}
-        <button disabled={loading || !email} className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-brand-600 py-3 font-semibold text-white hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-60">
+        <button disabled={loading || !email || cooldown > 0} className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-brand-600 py-3 font-semibold text-white hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-60">
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-          Envoyer le lien de réinitialisation
+          {cooldown > 0 ? `Renvoyer dans ${cooldown}s` : 'Envoyer le lien de réinitialisation'}
         </button>
         <button type="button" onClick={onLogin} className="mt-6 w-full text-sm text-slate-400 hover:text-white">
           Retour à la connexion

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import axios from 'axios';
 import { Loader2, LockKeyhole } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -28,8 +29,9 @@ export function ResetPasswordPage({ onLogin }: { onLogin: () => void }) {
       setMessage(responseMessage);
       window.history.replaceState({}, '', '/');
       setTimeout(onLogin, 1200);
-    } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Lien invalide ou expiré.');
+    } catch (err: unknown) {
+      const detail = axios.isAxiosError<{ detail?: string }>(err) ? err.response?.data?.detail : null;
+      setError(detail || 'Lien invalide ou expiré.');
     } finally {
       setLoading(false);
     }

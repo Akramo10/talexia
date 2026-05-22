@@ -1,5 +1,6 @@
 import axios from 'axios';
 import {
+  Crown,
   Bell,
   BriefcaseBusiness,
   Building2,
@@ -20,11 +21,12 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import {
+  closestCorners,
   DndContext,
   DragOverlay,
   KeyboardSensor,
+  MeasuringStrategy,
   PointerSensor,
-  rectIntersection,
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
@@ -33,12 +35,13 @@ import { sortableKeyboardCoordinates, arrayMove } from '@dnd-kit/sortable';
 import { API_BASE } from './lib/api';
 import { COLUMNS } from './types';
 import type { Application, ApplicationStatus } from './types';
-import { LandingPage } from './components/Landing/LandingPage';
+import { LandingPage, PricingPage } from './components/Landing/LandingPage';
 import { ForgotPasswordPage } from './components/Auth/ForgotPasswordPage';
 import { LoginPage } from './components/Auth/LoginPage';
 import { RegisterPage } from './components/Auth/RegisterPage';
 import { ResetPasswordPage } from './components/Auth/ResetPasswordPage';
 import { useAuth } from './contexts/AuthContext';
+import type { UserSubscription } from './contexts/AuthContext';
 import { ApplicationCard } from './components/KanbanBoard/ApplicationCard';
 import { KanbanBoard } from './components/KanbanBoard';
 import { AddApplicationModal } from './components/Modals/AddApplicationModal';
@@ -49,6 +52,8 @@ import { DocumentLibrary } from './components/Documents/DocumentLibrary';
 import { AnalyticsWidget } from './components/Analytics/AnalyticsWidget';
 import { ApplicationTableView } from './components/Applications/ApplicationTableView';
 import { DashboardOverview } from './components/Dashboard/DashboardOverview';
+import { AdminPage } from './components/Admin/AdminPage';
+import { GmailConnectionCard } from './components/Gmail/GmailConnectionCard';
 
 type Page = 'dashboard' | 'pipeline' | 'table' | 'companies' | 'documents' | 'campaigns' | 'analytics' | 'settings';
 
@@ -63,12 +68,16 @@ const navigation: Array<{ id: Page; label: string; icon: typeof LayoutDashboard 
   { id: 'settings', label: 'Paramètres', icon: Settings },
 ];
 
+const SUPPORT_PHONE = '+33 759009145';
+
 function App() {
-  const { user, loading: authLoading, logout } = useAuth();
+  const { user, subscription, loading: authLoading, logout } = useAuth();
   const [authMode, setAuthMode] = useState<'login' | 'register' | 'forgot' | 'reset'>(() => (
-    window.location.pathname === '/reset-password' ? 'reset' : 'login'
+    window.location.pathname === '/reset-password' ? 'reset' : window.location.pathname === '/register' ? 'register' : 'login'
   ));
-  const [showAuth, setShowAuth] = useState(() => window.location.pathname === '/reset-password');
+  const [showAuth, setShowAuth] = useState(() => ['/reset-password', '/register', '/login'].includes(window.location.pathname));
+  const [selectedPlan, setSelectedPlan] = useState(() => new URLSearchParams(window.location.search).get('plan') || 'trial_3_months');
+  const [, setRouteNonce] = useState(0);
   const [page, setPage] = useState<Page>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -84,14 +93,22 @@ function App() {
   const [dateFilter, setDateFilter] = useState<'all' | 'week' | 'month'>('all');
   const [gmailConnected, setGmailConnected] = useState(false);
   const [gmailEmail, setGmailEmail] = useState<string | null>(null);
+  const [gmailNotice, setGmailNotice] = useState('');
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [initialData, setInitialData] = useState<{ job_url?: string; raw_description?: string; company_name?: string; contract_type?: string; sector?: string; location?: string; salary?: string; description?: string; benefits?: string; job_title?: string; publication_date?: string; scraped_at?: string; remote_mode?: string } | undefined>();
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
+
+  const openAdmin = () => {
+    window.history.pushState({}, '', '/admin');
+    setProfileOpen(false);
+    setSidebarOpen(false);
+    setRouteNonce((value) => value + 1);
+  };
 
   const fetchApplications = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -114,6 +131,11 @@ function App() {
       setGmailConnected(false);
       setGmailEmail(null);
     }
+  };
+
+  const updateGmailStatus = (connected: boolean, email: string | null) => {
+    setGmailConnected(connected);
+    setGmailEmail(email);
   };
 
   useEffect(() => {
@@ -168,7 +190,21 @@ function App() {
 
   if (!user) {
     if (!showAuth) {
-      return <LandingPage onLogin={() => { setAuthMode('login'); setShowAuth(true); }} />;
+      const openRegister = (plan = 'trial_3_months') => {
+        setSelectedPlan(plan);
+        window.history.pushState({}, '', `/register?plan=${encodeURIComponent(plan)}`);
+        setAuthMode('register');
+        setShowAuth(true);
+      };
+      const openLogin = () => {
+        window.history.pushState({}, '', '/login');
+        setAuthMode('login');
+        setShowAuth(true);
+      };
+      if (window.location.pathname === '/pricing') {
+        return <PricingPage onLogin={openLogin} onRegister={openRegister} onBack={() => { window.history.pushState({}, '', '/'); setRouteNonce((value) => value + 1); }} />;
+      }
+      return <LandingPage onLogin={openLogin} onPricing={() => { window.history.pushState({}, '', '/pricing'); setRouteNonce((value) => value + 1); }} />;
     }
     return (
       <div className="min-h-screen bg-slate-950">
@@ -176,16 +212,34 @@ function App() {
           Retour à Telxia
         </button>
         {authMode === 'login' && <LoginPage onRegister={() => setAuthMode('register')} onForgotPassword={() => setAuthMode('forgot')} />}
-        {authMode === 'register' && <RegisterPage onLogin={() => setAuthMode('login')} />}
+        {authMode === 'register' && <RegisterPage onLogin={() => setAuthMode('login')} selectedPlan={selectedPlan} />}
         {authMode === 'forgot' && <ForgotPasswordPage onLogin={() => setAuthMode('login')} />}
         {authMode === 'reset' && <ResetPasswordPage onLogin={() => setAuthMode('login')} />}
       </div>
     );
   }
 
+  if (window.location.pathname.startsWith('/admin')) {
+    if (!user.is_admin) {
+      return (
+        <div className="grid min-h-screen place-items-center bg-[#0f1c22] px-6 text-center text-slate-300">
+          <div className="max-w-md rounded-3xl border border-white/10 bg-white/[0.045] p-8">
+            <h1 className="font-display text-3xl font-bold text-white">Accès refusé</h1>
+            <p className="mt-3 text-sm leading-6 text-slate-500">Cet espace est réservé aux administrateurs Telxia.</p>
+            <button onClick={() => { window.history.replaceState({}, '', '/'); setPage('dashboard'); }} className="mt-6 rounded-2xl bg-brand-600 px-5 py-3 text-sm font-bold text-white hover:bg-brand-500">
+              Retour dashboard
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return <AdminPage onExit={() => { window.history.pushState({}, '', '/'); setPage('dashboard'); }} />;
+  }
+
   const activeApplication = activeId ? applications.find((app) => app.id === activeId) : null;
   const currentNav = navigation.find((item) => item.id === page) || navigation[0];
   const avatar = user.full_name?.[0] || user.email[0] || 'T';
+  const subscriptionEnd = subscription?.ends_at ? new Date(subscription.ends_at).toLocaleDateString('fr-FR') : null;
 
   const findContainer = (id: string) => {
     if (COLUMNS.some((col) => col.id === id)) return id as ApplicationStatus;
@@ -278,7 +332,7 @@ function App() {
       return <Placeholder title="Entreprises" text="Une vue dédiée entreprises arrive ici. Les données restent disponibles dans Pipeline et Tableau." icon={Building2} />;
     }
     if (page === 'settings') {
-      return <SettingsPanel email={user.email} gmailConnected={gmailConnected} gmailEmail={gmailEmail} logout={logout} />;
+      return <SettingsPanel email={user.email} phone={user.phone} subscription={subscription} gmailConnected={gmailConnected} gmailEmail={gmailEmail} gmailNotice={gmailNotice} onGmailStatus={updateGmailStatus} onGmailMessage={setGmailNotice} logout={logout} />;
     }
     return (
       <section className="premium-surface flex min-h-[680px] flex-col overflow-hidden rounded-3xl">
@@ -300,7 +354,15 @@ function App() {
           ) : filteredApplications.length === 0 ? (
             <EmptyState onCreate={() => { setInitialData(undefined); setIsAddOpen(true); }} />
           ) : (
-            <DndContext sensors={sensors} collisionDetection={rectIntersection} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCorners}
+              measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
+              autoScroll={{ enabled: true, acceleration: 12, threshold: { x: 0.18, y: 0.18 } }}
+              onDragStart={handleDragStart}
+              onDragOver={handleDragOver}
+              onDragEnd={handleDragEnd}
+            >
               <div className="h-full"><KanbanBoard applications={filteredApplications} onRefresh={() => fetchApplications(true)} /></div>
               <DragOverlay dropAnimation={null}>
                 {activeApplication ? (
@@ -342,14 +404,20 @@ function App() {
                 </button>
               );
             })}
+            {user.is_admin && (
+              <button onClick={openAdmin} className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-sm font-bold text-cyan-200 transition-all hover:bg-white/[0.05]">
+                <Crown className="h-4.5 w-4.5" />
+                Admin
+              </button>
+            )}
           </nav>
 
           <div className="mt-auto rounded-3xl border border-white/10 bg-white/[0.045] p-4">
             <div className="mb-3 inline-flex rounded-full bg-brand-500/10 px-2.5 py-1 text-xs font-bold text-cyan-200">
-              Productivité
+              {subscription?.status === 'trial' ? 'Trial' : subscription?.status || 'Productivité'}
             </div>
-            <p className="font-display text-sm font-bold text-white">Gardez le cap</p>
-            <p className="mt-1 text-xs leading-5 text-slate-500">Centralisez vos candidatures, documents et relances dans un système clair.</p>
+            <p className="font-display text-sm font-bold text-white">{subscription?.plan.name || 'Gardez le cap'}</p>
+            <p className="mt-1 text-xs leading-5 text-slate-500">{subscriptionEnd ? `Expiration le ${subscriptionEnd}` : 'Centralisez vos candidatures, documents et relances dans un système clair.'}</p>
           </div>
         </div>
       </aside>
@@ -370,13 +438,23 @@ function App() {
               <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
               <input value={globalSearch} onChange={(event) => setGlobalSearch(event.target.value)} placeholder="Recherche globale..." className="h-12 w-full rounded-2xl border border-white/10 bg-white/[0.055] pl-11 pr-4 text-sm text-white outline-none placeholder:text-slate-600 focus:border-brand-500/50" />
             </div>
-            <button className="hidden rounded-2xl bg-white/[0.055] p-3 text-slate-400 hover:text-white md:block" title="Notifications">
+            <button onClick={() => window.alert('Les notifications seront disponibles prochainement.')} className="hidden rounded-2xl bg-white/[0.055] p-3 text-slate-400 hover:text-white md:block" title="Notifications">
               <Bell className="h-5 w-5" />
             </button>
-            <div className={`hidden items-center gap-2 rounded-2xl px-3 py-2 text-xs font-bold md:flex ${gmailConnected ? 'bg-success/10 text-success' : 'bg-slate-800 text-slate-500'}`}>
+            <button type="button" onClick={() => setPage('settings')} className={`hidden items-center gap-2 rounded-2xl px-3 py-2 text-left text-xs font-bold md:flex ${gmailConnected ? 'bg-success/10 text-success' : 'bg-slate-800 text-slate-500'}`}>
               <MailCheck className="h-4 w-4" />
               {gmailConnected ? (gmailEmail || 'Gmail connecté') : 'Gmail déconnecté'}
-            </div>
+            </button>
+            {subscription && (
+              <button onClick={() => setPage('settings')} className="hidden rounded-2xl bg-brand-500/10 px-3 py-2 text-xs font-bold text-cyan-200 hover:bg-brand-500/20 lg:block">
+                {subscription.status === 'trial' ? 'Trial' : subscription.status} · fin {subscriptionEnd}
+              </button>
+            )}
+            {user.is_admin && (
+              <button onClick={openAdmin} className="hidden rounded-2xl bg-cyan-300/10 px-3 py-2 text-xs font-bold text-cyan-100 hover:bg-cyan-300/20 lg:block">
+                Espace Admin
+              </button>
+            )}
             <button onClick={() => { setInitialData(undefined); setIsAddOpen(true); }} className="hidden items-center gap-2 rounded-2xl bg-brand-600 px-4 py-3 text-sm font-bold text-white shadow-xl shadow-brand-600/15 hover:bg-brand-500 xl:inline-flex">
               <Plus className="h-4 w-4" />
               Nouvelle candidature
@@ -391,11 +469,17 @@ function App() {
                   <div className="rounded-2xl bg-white/[0.045] p-3">
                     <p className="font-bold text-white">{user.full_name || 'Utilisateur Telxia'}</p>
                     <p className="truncate text-xs text-slate-500">{user.email}</p>
+                    {subscription && <p className="mt-2 truncate text-xs font-semibold text-cyan-200">{subscription.plan.name} · fin {subscriptionEnd}</p>}
                     <p className="mt-2 truncate text-xs font-semibold text-cyan-200">{gmailConnected ? `Gmail : ${gmailEmail || 'connecté'}` : 'Gmail non connecté'}</p>
                   </div>
                   <button onClick={() => setPage('settings')} className="mt-2 flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-left text-sm font-semibold text-slate-300 hover:bg-white/[0.05]">
                     <Settings className="h-4 w-4" /> Paramètres compte
                   </button>
+                  {user.is_admin && (
+                    <button onClick={openAdmin} className="flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-left text-sm font-semibold text-cyan-200 hover:bg-white/[0.05]">
+                      <Gauge className="h-4 w-4" /> Espace admin
+                    </button>
+                  )}
                   <button onClick={logout} className="flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-left text-sm font-semibold text-danger hover:bg-danger/10">
                     <LogOut className="h-4 w-4" /> Déconnexion
                   </button>
@@ -531,7 +615,16 @@ function Placeholder({ title, text, icon: Icon }: { title: string; text: string;
   );
 }
 
-function SettingsPanel({ email, gmailConnected, gmailEmail, logout }: { email: string; gmailConnected: boolean; gmailEmail: string | null; logout: () => void }) {
+function SettingsPanel({ email, phone, subscription, gmailConnected, gmailEmail, gmailNotice, onGmailStatus, onGmailMessage, logout }: { email: string; phone: string | null; subscription: UserSubscription | null; gmailConnected: boolean; gmailEmail: string | null; gmailNotice: string; onGmailStatus: (connected: boolean, email: string | null) => void; onGmailMessage: (message: string) => void; logout: () => void }) {
+  const expiresAt = subscription?.ends_at ? new Date(subscription.ends_at).toLocaleDateString('fr-FR') : '-';
+  const choosePlan = () => {
+    const whatsappUrl = import.meta.env.VITE_WHATSAPP_URL as string | undefined;
+    if (whatsappUrl) {
+      window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    window.alert('Contactez un administrateur Telxia pour activer un plan 6 mois ou 12 mois.');
+  };
   return (
     <section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
       <div className="premium-surface rounded-3xl p-6">
@@ -543,14 +636,28 @@ function SettingsPanel({ email, gmailConnected, gmailEmail, logout }: { email: s
             <p className="mt-1 font-semibold text-white">{email}</p>
           </div>
           <div className="rounded-2xl bg-white/[0.045] p-4">
-            <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Gmail</p>
-            <p className={`mt-1 font-semibold ${gmailConnected ? 'text-success' : 'text-slate-400'}`}>{gmailConnected ? (gmailEmail || 'Connecté') : 'Non connecté'}</p>
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Téléphone</p>
+            <p className="mt-1 font-semibold text-white">{phone || 'Non renseigné'}</p>
           </div>
+          <div className="rounded-2xl bg-white/[0.045] p-4">
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Abonnement</p>
+            <p className="mt-1 font-semibold text-white">{subscription?.plan.name || 'Aucun plan actif'}</p>
+            <p className="mt-1 text-xs font-semibold text-cyan-200">{subscription ? `${subscription.status} · expiration ${expiresAt}` : 'Choisissez un plan pour continuer.'}</p>
+          </div>
+          <div className="rounded-2xl bg-white/[0.045] p-4">
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Support Telxia</p>
+            <p className="mt-1 font-semibold text-white">{SUPPORT_PHONE}</p>
+          </div>
+          <GmailConnectionCard connected={gmailConnected} email={gmailEmail} onStatusChange={onGmailStatus} onMessage={onGmailMessage} />
+          {gmailNotice && <p className="rounded-2xl border border-brand-500/20 bg-brand-500/10 px-4 py-3 text-sm font-semibold text-cyan-100">{gmailNotice}</p>}
         </div>
       </div>
       <div className="premium-surface rounded-3xl p-6">
         <h3 className="font-display text-xl font-bold text-white">Préférences</h3>
         <p className="mt-2 text-sm text-slate-500">Thème dark/light et notifications seront disponibles plus tard.</p>
+        <button onClick={choosePlan} className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-brand-600 px-4 py-3 text-sm font-bold text-white hover:bg-brand-500">
+          Choisir un plan
+        </button>
         <button onClick={logout} className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-danger/10 px-4 py-3 text-sm font-bold text-danger hover:bg-danger/20">
           <LogOut className="h-4 w-4" />
           Se déconnecter

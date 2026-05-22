@@ -27,6 +27,7 @@ from app.schemas.user import (
     UserResponse,
 )
 from app.services.email_service import send_password_reset_email, send_welcome_email
+from app.services.subscription_service import SubscriptionService
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 logger = logging.getLogger(__name__)
@@ -55,13 +56,19 @@ async def register(payload: UserRegister, background_tasks: BackgroundTasks, db:
     user = User(
         email=payload.email.lower(),
         full_name=payload.full_name,
+        phone=payload.phone,
         hashed_password=get_password_hash(payload.password),
         auth_provider=AuthProvider.LOCAL,
     )
     db.add(user)
+    await db.flush()
+    try:
+        subscription = await SubscriptionService.create_subscription_for_user(db, user.id, payload.plan)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Plan invalide") from exc
     await db.commit()
     await db.refresh(user)
-    background_tasks.add_task(send_welcome_email, user.email, user.full_name)
+    background_tasks.add_task(send_welcome_email, user.email, user.full_name, payload.plan, subscription.starts_at, subscription.ends_at)
     return _token_response(user)
 
 
@@ -165,6 +172,9 @@ async def google_login(payload: GoogleLoginRequest, db: AsyncSession = Depends(g
             auth_provider=AuthProvider.GOOGLE,
         )
         db.add(user)
+        await db.flush()
+        subscription = await SubscriptionService.create_trial_for_user(db, user.id)
+        logger.info("Trial subscription created for Google user %s until %s", user.email, subscription.ends_at)
 
     await db.commit()
     await db.refresh(user)

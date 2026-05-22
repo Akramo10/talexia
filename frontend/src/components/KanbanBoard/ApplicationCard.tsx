@@ -34,7 +34,8 @@ export function ApplicationCard({ application, onRefresh, isOverlay = false }: A
         isDragging,
     } = useSortable({ 
         id: application.id, 
-        data: { ...application }
+        data: { ...application },
+        animateLayoutChanges: () => true,
     });
 
     const style = {
@@ -80,7 +81,7 @@ export function ApplicationCard({ application, onRefresh, isOverlay = false }: A
                 {...(isOverlay ? {} : attributes)}
                 {...(isOverlay ? {} : listeners)}
                 onClick={() => setIsDetailOpen(true)}
-                className={`group relative bg-white/[0.045] border border-white/10 hover:border-brand-500/35 p-4 rounded-2xl transition-all duration-300 hover:-translate-y-0.5 hover:bg-white/[0.065] ${isOverlay ? 'cursor-grabbing shadow-2xl' : 'cursor-grab active:cursor-grabbing'} ${isDragging && !isOverlay ? 'opacity-30 scale-95 shadow-none' : 'opacity-100 shadow-sm hover:shadow-2xl hover:shadow-brand-500/10'}`}
+                className={`group relative rounded-2xl border border-white/10 bg-white/[0.045] p-4 outline-none transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-500/35 hover:bg-white/[0.065] focus-visible:ring-2 focus-visible:ring-brand-500/60 ${isOverlay ? 'cursor-grabbing shadow-2xl' : 'cursor-grab active:cursor-grabbing'} ${isDragging && !isOverlay ? 'scale-95 opacity-30 shadow-none' : 'opacity-100 shadow-sm hover:shadow-2xl hover:shadow-brand-500/10'}`}
             >
                 {application.is_flagged && (
                     <div className="absolute top-3 right-3">

@@ -1,11 +1,13 @@
 import axios from 'axios';
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { ArrowDownUp, Edit3, ExternalLink, FileText, MoreHorizontal } from 'lucide-react';
+import { ArrowDownUp, Edit3, ExternalLink, Eye, FileText, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { API_BASE } from '../../lib/api';
 import { COLUMNS } from '../../types';
 import type { Application, ApplicationStatus } from '../../types';
+import { ApplicationDetailModal } from '../Modals/ApplicationDetailModal';
+import { ApplicationEditModal } from '../Modals/ApplicationEditModal';
 
 interface ApplicationTableViewProps {
   applications: Application[];
@@ -28,6 +30,9 @@ export function ApplicationTableView({ applications, onRefresh }: ApplicationTab
   const [sortKey, setSortKey] = useState<SortKey>('activity');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [page, setPage] = useState(1);
+  const [selectedApplication, setSelectedApplication] = useState<Application | null>(null);
+  const [editingApplication, setEditingApplication] = useState<Application | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const pageSize = 10;
 
   const sorted = useMemo(() => {
@@ -68,6 +73,25 @@ export function ApplicationTableView({ applications, onRefresh }: ApplicationTab
     onRefresh();
   };
 
+  const deleteApplication = async (app: Application) => {
+    const company = app.company?.name || 'cette entreprise';
+    if (!window.confirm(`Supprimer la candidature chez ${company} ? Cette action est définitive.`)) return;
+    setDeletingId(app.id);
+    try {
+      await axios.delete(`${API_BASE}/applications/${app.id}`);
+      onRefresh();
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const formatActivity = (value: string | null | undefined) => {
+    if (!value) return '-';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '-';
+    return formatDistanceToNow(date, { addSuffix: true, locale: fr });
+  };
+
   return (
     <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.045]">
       <div className="flex items-center justify-between gap-3 border-b border-white/10 px-5 py-4">
@@ -78,9 +102,9 @@ export function ApplicationTableView({ applications, onRefresh }: ApplicationTab
         <span className="rounded-full bg-slate-800 px-3 py-1 text-xs font-bold text-slate-400">{applications.length} lignes</span>
       </div>
 
-      <div className="overflow-x-auto">
+      <div className="max-h-[68vh] overflow-auto overscroll-contain scroll-smooth custom-scrollbar" tabIndex={0} aria-label="Tableau des candidatures avec scroll horizontal">
         <table className="min-w-[1050px] w-full text-left">
-          <thead className="bg-slate-950/35 text-[11px] uppercase tracking-[0.14em] text-slate-500">
+          <thead className="sticky top-0 z-10 bg-slate-950/95 text-[11px] uppercase tracking-[0.14em] text-slate-500 backdrop-blur">
             <tr>
               {[
                 ['Entreprise', 'company'],
@@ -105,19 +129,19 @@ export function ApplicationTableView({ applications, onRefresh }: ApplicationTab
           </thead>
           <tbody className="divide-y divide-white/10">
             {rows.map((app) => (
-              <tr key={app.id} className="group transition-colors hover:bg-white/[0.045]">
-                <td className="px-4 py-4">
+              <tr key={app.id} tabIndex={0} onKeyDown={(event) => { if (event.key === 'Enter') setSelectedApplication(app); }} className="group outline-none transition-colors hover:bg-white/[0.045] focus-visible:bg-brand-500/10">
+                <td className="sticky left-0 z-[1] bg-[#142229] px-4 py-3 group-hover:bg-[#182a32]">
                   <div className="font-semibold text-slate-100">{app.company?.name || 'Entreprise inconnue'}</div>
                   <div className="text-xs text-slate-500">{app.location || app.company?.sector || 'Non renseigné'}</div>
                 </td>
-                <td className="px-4 py-4">
+                <td className="px-4 py-3">
                   <div className="max-w-[220px] truncate font-semibold text-slate-200">{app.job_title || 'Poste sans titre'}</div>
                   <div className="text-xs text-slate-500">{app.remote_mode || 'Mode non renseigné'}</div>
                 </td>
-                <td className="px-4 py-4">
+                <td className="px-4 py-3">
                   <span className="rounded-full bg-brand-500/10 px-2.5 py-1 text-xs font-bold text-cyan-200">{app.type}</span>
                 </td>
-                <td className="px-4 py-4">
+                <td className="px-4 py-3">
                   <select
                     value={app.status}
                     onChange={(event) => updateStatus(app, event.target.value as ApplicationStatus)}
@@ -128,31 +152,34 @@ export function ApplicationTableView({ applications, onRefresh }: ApplicationTab
                     ))}
                   </select>
                 </td>
-                <td className="px-4 py-4 text-sm text-slate-400">{app.date_sent ? new Date(app.date_sent).toLocaleDateString('fr-FR') : '-'}</td>
-                <td className="px-4 py-4 text-sm text-slate-400">{app.last_contact_date ? new Date(app.last_contact_date).toLocaleDateString('fr-FR') : '-'}</td>
-                <td className="px-4 py-4">
+                <td className="px-4 py-3 text-sm text-slate-400">{app.date_sent ? new Date(app.date_sent).toLocaleDateString('fr-FR') : '-'}</td>
+                <td className="px-4 py-3 text-sm text-slate-400">{app.last_contact_date ? new Date(app.last_contact_date).toLocaleDateString('fr-FR') : '-'}</td>
+                <td className="px-4 py-3">
                   {app.job_url ? (
                     <a href={app.job_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs font-bold text-cyan-200 hover:text-white">
                       Source <ExternalLink className="h-3.5 w-3.5" />
                     </a>
                   ) : <span className="text-xs text-slate-600">-</span>}
                 </td>
-                <td className="px-4 py-4">
+                <td className="px-4 py-3">
                   <div className="flex items-center gap-2 text-xs text-slate-400">
                     <FileText className="h-4 w-4 text-slate-500" />
                     {(app.cv_document ? 1 : 0) + (app.cover_letter_document ? 1 : 0)} fichier(s)
                   </div>
                 </td>
-                <td className="px-4 py-4 text-sm text-slate-400">
-                  {formatDistanceToNow(new Date(app.last_contact_date), { addSuffix: true, locale: fr })}
+                <td className="px-4 py-3 text-sm text-slate-400">
+                  {formatActivity(app.last_contact_date)}
                 </td>
-                <td className="px-4 py-4">
-                  <div className="flex justify-end gap-1">
-                    <button className="rounded-xl p-2 text-slate-500 hover:bg-slate-800 hover:text-white" title="Edition rapide">
+                <td className="sticky right-0 z-[1] bg-[#142229] px-4 py-3 group-hover:bg-[#182a32]">
+                  <div className="flex justify-end gap-1 opacity-80 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                    <button onClick={() => setSelectedApplication(app)} className="rounded-xl p-2 text-slate-500 hover:bg-slate-800 hover:text-white" title="Détails">
+                      <Eye className="h-4 w-4" />
+                    </button>
+                    <button onClick={() => setEditingApplication(app)} className="rounded-xl p-2 text-slate-500 hover:bg-slate-800 hover:text-white" title="Modifier">
                       <Edit3 className="h-4 w-4" />
                     </button>
-                    <button className="rounded-xl p-2 text-slate-500 hover:bg-slate-800 hover:text-white" title="Actions">
-                      <MoreHorizontal className="h-4 w-4" />
+                    <button disabled={deletingId === app.id} onClick={() => deleteApplication(app)} className="rounded-xl p-2 text-slate-500 hover:bg-danger/10 hover:text-danger disabled:opacity-50" title="Supprimer">
+                      <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
                 </td>
@@ -179,6 +206,26 @@ export function ApplicationTableView({ applications, onRefresh }: ApplicationTab
           <button disabled={page === totalPages} onClick={() => setPage((value) => Math.min(totalPages, value + 1))} className="rounded-xl bg-slate-800 px-3 py-2 font-bold text-slate-300 disabled:opacity-40">Suivant</button>
         </div>
       </div>
+      {selectedApplication && (
+        <ApplicationDetailModal
+          application={selectedApplication}
+          onClose={() => setSelectedApplication(null)}
+          onEdit={() => {
+            setEditingApplication(selectedApplication);
+            setSelectedApplication(null);
+          }}
+        />
+      )}
+      {editingApplication && (
+        <ApplicationEditModal
+          application={editingApplication}
+          onClose={() => setEditingApplication(null)}
+          onSaved={() => {
+            setEditingApplication(null);
+            onRefresh();
+          }}
+        />
+      )}
     </div>
   );
 }

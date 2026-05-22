@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     aws_region: str = "eu-north-1"
     aws_s3_bucket: str = "talexia-documents-prod"
     frontend_url: str = "http://localhost:5173"
+    resend_api_key: str = ""
+    resend_from_email: str = "noreply@telxia.fr"
     default_email_send_delay_seconds: int = 60
 
     model_config = SettingsConfigDict(env_file=(".env", "../.env"), extra="ignore")

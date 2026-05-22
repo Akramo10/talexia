@@ -14,7 +14,9 @@ interface AuthContextValue {
   token: string | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, fullName?: string) => Promise<void>;
+  register: (email: string, password: string, confirmPassword: string, fullName?: string) => Promise<void>;
+  forgotPassword: (email: string) => Promise<string>;
+  resetPassword: (token: string, newPassword: string, confirmPassword: string) => Promise<string>;
   googleLogin: (idToken: string) => Promise<void>;
   logout: () => void;
 }
@@ -66,9 +68,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const res = await axios.post(`${API_BASE}/auth/login`, { email, password });
       consumeTokenResponse(res.data);
     },
-    register: async (email, password, fullName) => {
-      const res = await axios.post(`${API_BASE}/auth/register`, { email, password, full_name: fullName });
+    register: async (email, password, confirmPassword, fullName) => {
+      const res = await axios.post(`${API_BASE}/auth/register`, { email, password, confirm_password: confirmPassword, full_name: fullName });
       consumeTokenResponse(res.data);
+    },
+    forgotPassword: async (email) => {
+      const res = await axios.post(`${API_BASE}/auth/forgot-password`, { email });
+      return res.data.message;
+    },
+    resetPassword: async (token, newPassword, confirmPassword) => {
+      const res = await axios.post(`${API_BASE}/auth/reset-password`, { token, new_password: newPassword, confirm_password: confirmPassword });
+      return res.data.message;
     },
     googleLogin: async (idToken) => {
       const res = await axios.post(`${API_BASE}/auth/google`, { id_token: idToken });

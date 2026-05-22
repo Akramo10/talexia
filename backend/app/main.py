@@ -1,8 +1,19 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
+from app.services.campaign_scheduler import CampaignScheduler
 
 app = FastAPI(title="Telxia", description="Career Operating System for candidatures, documents and campaigns", version="1.0.0")
+
+
+@app.on_event("startup")
+async def startup_event():
+    CampaignScheduler.start()
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    await CampaignScheduler.stop()
 
 app.add_middleware(
     CORSMiddleware,

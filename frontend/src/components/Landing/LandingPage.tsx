@@ -42,9 +42,9 @@ export function LandingPage({ onLogin }: LandingPageProps) {
       <header className="sticky top-0 z-40 border-b border-[rgba(52,77,92,0.12)] bg-[#F5F8F9]/82 backdrop-blur-xl">
         <nav className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 lg:px-8">
           <a href="#top" className="flex items-center gap-3">
-            <img src="/logo-talexia.png" alt="Telxia" className="h-10 w-10 rounded-2xl object-contain shadow-sm" />
+            <img src="/logo-talexia.png" alt="Telxia" className="h-14 w-14 rounded-3xl object-contain shadow-lg shadow-[#344D5C]/10" />
             <div>
-              <div className="font-display text-lg font-bold tracking-tight text-[#1C2A32]">Telxia.fr</div>
+              <div className="font-display text-xl font-bold tracking-tight text-[#1C2A32]">Telxia.fr</div>
               <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#6B7F89]">Career OS</div>
             </div>
           </a>
@@ -119,7 +119,7 @@ export function LandingPage({ onLogin }: LandingPageProps) {
       <footer className="relative z-10 border-t border-[rgba(52,77,92,0.14)] bg-white/55 px-5 py-10">
         <div className="mx-auto flex max-w-7xl flex-col gap-6 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-3">
-            <img src="/logo-talexia.png" alt="Telxia" className="h-10 w-10 rounded-2xl object-contain" />
+            <img src="/logo-talexia.png" alt="Telxia" className="h-14 w-14 rounded-3xl object-contain" />
             <div>
               <div className="font-display font-bold text-[#1C2A32]">Telxia.fr</div>
               <p className="text-sm text-[#6B7F89]">Pilotez vos candidatures avec clarté.</p>

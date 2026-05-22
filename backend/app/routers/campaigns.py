@@ -1,6 +1,6 @@
 import asyncio
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, UploadFile
@@ -37,12 +37,19 @@ from app.services.import_service import ImportService
 
 router = APIRouter(prefix="/campaigns", tags=["campaigns"])
 EMAIL_PATTERN = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$")
+MIN_SCHEDULE_LEAD_SECONDS = 120
 
 
 def _campaign_response(campaign: EmailCampaign) -> EmailCampaign:
     for key, value in CampaignService.counts(campaign).items():
         setattr(campaign, key, value)
     return campaign
+
+
+def _as_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
 
 
 async def _send_campaign_task(campaign_id: UUID, user_id: UUID, delay_seconds: int) -> None:
@@ -331,7 +338,23 @@ async def send_campaign(
         raise HTTPException(status_code=409, detail="Campaign is already sending")
     await CampaignSender.get_gmail_token(db, current_user.id)
     delay = payload.delay_seconds if payload.delay_seconds is not None else campaign.send_delay_seconds
+    if payload.scheduled_at:
+        scheduled_at = _as_utc(payload.scheduled_at)
+        minimum_schedule_at = datetime.now(timezone.utc) + timedelta(seconds=MIN_SCHEDULE_LEAD_SECONDS)
+        if scheduled_at < minimum_schedule_at:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Scheduled date must be at least {MIN_SCHEDULE_LEAD_SECONDS // 60} minutes in the future",
+            )
+        campaign.status = CampaignStatus.SCHEDULED
+        campaign.scheduled_at = scheduled_at
+        campaign.started_at = None
+        campaign.completed_at = None
+        await CampaignLogService.add(db, campaign.id, f"Campaign scheduled for {scheduled_at.isoformat()}.", CampaignLogLevel.INFO)
+        await db.commit()
+        return _campaign_response(await CampaignService.get_campaign(db, campaign.id, current_user.id))
     campaign.status = CampaignStatus.SENDING
+    campaign.scheduled_at = None
     campaign.started_at = datetime.now(timezone.utc)
     campaign.completed_at = None
     await CampaignLogService.add(db, campaign.id, "Campaign queued for sending.", CampaignLogLevel.INFO)
@@ -362,6 +385,7 @@ async def resume_campaign(campaign_id: UUID, current_user: User = Depends(get_cu
 async def cancel_campaign(campaign_id: UUID, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     campaign = await CampaignService.get_campaign(db, campaign_id, current_user.id)
     campaign.status = CampaignStatus.CANCELLED
+    campaign.scheduled_at = None
     campaign.cancelled_at = datetime.now(timezone.utc)
     await CampaignLogService.add(db, campaign.id, "Campaign cancelled by user.", CampaignLogLevel.WARNING)
     await db.commit()

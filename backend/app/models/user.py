@@ -33,3 +33,4 @@ class User(Base):
     notes = relationship("Note", back_populates="user", cascade="all, delete-orphan")
     email_campaigns = relationship("EmailCampaign", back_populates="user", cascade="all, delete-orphan")
     gmail_token = relationship("GmailToken", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    password_reset_tokens = relationship("PasswordResetToken", back_populates="user", cascade="all, delete-orphan")

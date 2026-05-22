@@ -15,7 +15,7 @@ declare global {
   }
 }
 
-export function LoginPage({ onRegister }: { onRegister: () => void }) {
+export function LoginPage({ onRegister, onForgotPassword }: { onRegister: () => void; onForgotPassword: () => void }) {
   const { login, googleLogin } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -87,7 +87,12 @@ export function LoginPage({ onRegister }: { onRegister: () => void }) {
             </div>
           </label>
           <label className="block">
-            <span className="text-xs font-bold text-slate-500 uppercase">Mot de passe</span>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-500 uppercase">Mot de passe</span>
+              <button type="button" onClick={onForgotPassword} className="text-xs font-semibold text-cyan-200 hover:text-white">
+                Mot de passe oublié ?
+              </button>
+            </div>
             <div className="mt-1 flex items-center gap-2 bg-slate-950 border border-slate-800 rounded-xl px-3">
               <Lock className="w-4 h-4 text-slate-500" />
               <input className="w-full bg-transparent py-3 outline-none text-slate-100" value={password} onChange={(e) => setPassword(e.target.value)} type="password" required />

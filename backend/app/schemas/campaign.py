@@ -24,6 +24,7 @@ class EmailCampaignUpdate(BaseModel):
     body: Optional[str] = None
     status: Optional[CampaignStatus] = None
     send_delay_seconds: Optional[int] = None
+    scheduled_at: Optional[datetime] = None
 
 
 class EmailRecipientCreate(BaseModel):
@@ -95,6 +96,7 @@ class EmailCampaignResponse(EmailCampaignBase):
     id: UUID
     user_id: UUID
     status: CampaignStatus
+    scheduled_at: Optional[datetime] = None
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     cancelled_at: Optional[datetime] = None
@@ -118,6 +120,7 @@ class ImportRecipientsResponse(BaseModel):
 
 class SendCampaignRequest(BaseModel):
     delay_seconds: Optional[int] = None
+    scheduled_at: Optional[datetime] = None
 
 
 class GmailStatusResponse(BaseModel):

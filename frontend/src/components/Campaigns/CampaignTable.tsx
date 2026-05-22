@@ -1,4 +1,4 @@
-import { Copy, Edit, Play, Trash2 } from 'lucide-react';
+import { Copy, Edit, Play, Plus, Search, Trash2 } from 'lucide-react';
 import type { Campaign, CampaignStatus } from './types';
 
 interface CampaignTableProps {
@@ -19,68 +19,84 @@ const statuses: Array<CampaignStatus | 'all'> = ['all', 'draft', 'scheduled', 's
 
 export function CampaignTable(props: CampaignTableProps) {
   return (
-    <section className="bg-slate-900/40 border border-slate-800 rounded-2xl overflow-hidden">
-      <div className="p-5 border-b border-slate-800 flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
-        <div>
-          <h2 className="text-lg font-bold text-white">Liste des campagnes</h2>
-          <p className="text-sm text-slate-500">Draft = sauvegardée sans envoi · Paused = temporairement suspendue.</p>
+    <section className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04]">
+      <div className="border-b border-white/10 p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="font-display text-lg font-bold text-white">Campagnes</h2>
+            <p className="text-xs text-slate-500">Sélectionnez un brouillon ou créez un nouveau flow.</p>
+          </div>
+          <button onClick={props.onNew} title="Nouvelle campagne" className="rounded-2xl bg-brand-600 p-3 text-white hover:bg-brand-500">
+            <Plus className="h-4 w-4" />
+          </button>
         </div>
-        <div className="flex gap-2">
-          <button onClick={props.onNew} className="bg-brand-600 hover:bg-brand-500 text-white font-semibold rounded-xl px-3 py-2 text-sm">Nouvelle campagne</button>
-          <input className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 outline-none text-white text-sm" placeholder="Rechercher" value={props.search} onChange={(e) => props.onSearch(e.target.value)} />
-          <select className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 outline-none text-white text-sm" value={props.status} onChange={(e) => props.onStatus(e.target.value as CampaignStatus | 'all')}>
-            {statuses.map((item) => <option key={item} value={item}>{item}</option>)}
+        <div className="mt-4 space-y-2">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600" />
+            <input className="w-full rounded-2xl border border-white/10 bg-slate-950/60 py-2 pl-9 pr-3 text-sm text-white outline-none" placeholder="Rechercher" value={props.search} onChange={(e) => props.onSearch(e.target.value)} />
+          </div>
+          <select className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-slate-300 outline-none" value={props.status} onChange={(e) => props.onStatus(e.target.value as CampaignStatus | 'all')}>
+            {statuses.map((item) => <option key={item} value={item}>{item === 'all' ? 'Tous les statuts' : item}</option>)}
           </select>
         </div>
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-950/60 text-slate-500 text-xs uppercase">
-            <tr>
-              <th className="text-left p-3">Nom</th>
-              <th className="text-left p-3">Statut</th>
-              <th className="text-left p-3">Destinataires</th>
-              <th className="text-left p-3">Date</th>
-              <th className="text-right p-3">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {props.campaigns.length === 0 && (
-              <tr><td colSpan={5} className="p-8 text-center text-slate-500">Aucune campagne. Créez un brouillon pour commencer.</td></tr>
-            )}
-            {props.campaigns.map((campaign) => (
-              <tr key={campaign.id} className={`border-t border-slate-800 hover:bg-slate-800/30 ${campaign.id === props.selectedId ? 'bg-brand-500/10' : ''}`}>
-                <td className="p-3">
-                  <button onClick={() => props.onSelect(campaign)} className="text-left">
-                    <span className="font-semibold text-white">{campaign.name}</span>
-                    <span className="block text-xs text-slate-500 truncate max-w-xs">{campaign.subject}</span>
-                  </button>
-                </td>
-                <td className="p-3"><StatusBadge status={campaign.status} /></td>
-                <td className="p-3 text-slate-300">{campaign.total_recipients}</td>
-                <td className="p-3 text-slate-500">{new Date(campaign.updated_at).toLocaleDateString()}</td>
-                <td className="p-3">
-                  <div className="flex justify-end gap-1">
-                    <IconButton title="Ouvrir / éditer" onClick={() => props.onSelect(campaign)}><Edit className="w-4 h-4" /></IconButton>
-                    <IconButton title="Dupliquer" onClick={() => props.onDuplicate(campaign)}><Copy className="w-4 h-4" /></IconButton>
-                    <IconButton title="Envoyer" onClick={() => props.onSend(campaign)}><Play className="w-4 h-4" /></IconButton>
-                    <IconButton title="Supprimer" onClick={() => props.onDelete(campaign)}><Trash2 className="w-4 h-4" /></IconButton>
+      <div className="max-h-[680px] space-y-2 overflow-y-auto p-3">
+        {props.campaigns.length === 0 && (
+          <div className="rounded-3xl border border-dashed border-white/10 p-6 text-center">
+            <p className="font-display text-lg font-bold text-white">Aucune campagne</p>
+            <p className="mt-2 text-sm text-slate-500">Créez un brouillon pour commencer.</p>
+            <button onClick={props.onNew} className="mt-4 rounded-2xl bg-brand-600 px-4 py-2 text-sm font-bold text-white">Créer campagne</button>
+          </div>
+        )}
+        {props.campaigns.map((campaign) => {
+          const active = campaign.id === props.selectedId;
+          return (
+            <article key={campaign.id} className={`rounded-3xl border p-4 transition-all ${active ? 'border-brand-500/40 bg-brand-500/10' : 'border-white/10 bg-slate-950/25 hover:bg-white/[0.04]'}`}>
+              <button onClick={() => props.onSelect(campaign)} className="w-full text-left">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="truncate font-display text-sm font-bold text-white">{campaign.name}</h3>
+                    <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">{campaign.subject}</p>
                   </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                  <StatusBadge status={campaign.status} />
+                </div>
+                <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                  <MiniStat label="Contacts" value={campaign.total_recipients} />
+                  <MiniStat label="Envoyés" value={campaign.sent_count} />
+                  <MiniStat label="Erreurs" value={campaign.failed_count} />
+                </div>
+              </button>
+              <div className="mt-3 flex justify-between border-t border-white/10 pt-3">
+                <span className="text-xs text-slate-600">{new Date(campaign.updated_at).toLocaleDateString('fr-FR')}</span>
+                <div className="flex gap-1">
+                  <IconButton title="Ouvrir" onClick={() => props.onSelect(campaign)}><Edit className="h-3.5 w-3.5" /></IconButton>
+                  <IconButton title="Dupliquer" onClick={() => props.onDuplicate(campaign)}><Copy className="h-3.5 w-3.5" /></IconButton>
+                  <IconButton title="Envoyer" onClick={() => props.onSend(campaign)}><Play className="h-3.5 w-3.5" /></IconButton>
+                  <IconButton title="Supprimer" onClick={() => props.onDelete(campaign)}><Trash2 className="h-3.5 w-3.5" /></IconButton>
+                </div>
+              </div>
+            </article>
+          );
+        })}
       </div>
     </section>
   );
 }
 
+function MiniStat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-2xl bg-white/[0.045] px-2 py-2">
+      <p className="text-[10px] font-bold uppercase text-slate-600">{label}</p>
+      <p className="font-display text-lg font-bold text-slate-200">{value}</p>
+    </div>
+  );
+}
+
 export function StatusBadge({ status }: { status: CampaignStatus }) {
   const color = status === 'completed' ? 'text-success bg-success/10' : status === 'failed' || status === 'cancelled' ? 'text-danger bg-danger/10' : status === 'sending' ? 'text-info bg-info/10' : status === 'paused' ? 'text-warning bg-warning/10' : 'text-slate-300 bg-slate-800';
-  return <span className={`text-[10px] px-2 py-1 rounded-full font-bold uppercase ${color}`} title={status}>{status}</span>;
+  return <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-bold uppercase ${color}`} title={status}>{status}</span>;
 }
 
 function IconButton({ title, onClick, children }: { title: string; onClick: () => void; children: React.ReactNode }) {
-  return <button title={title} onClick={onClick} className="p-2 rounded-lg bg-slate-900 hover:bg-slate-700 text-slate-300">{children}</button>;
+  return <button title={title} onClick={onClick} className="rounded-xl bg-slate-900 p-2 text-slate-400 hover:bg-slate-700 hover:text-white">{children}</button>;
 }

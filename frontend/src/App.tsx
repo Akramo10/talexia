@@ -34,8 +34,10 @@ import { API_BASE } from './lib/api';
 import { COLUMNS } from './types';
 import type { Application, ApplicationStatus } from './types';
 import { LandingPage } from './components/Landing/LandingPage';
+import { ForgotPasswordPage } from './components/Auth/ForgotPasswordPage';
 import { LoginPage } from './components/Auth/LoginPage';
 import { RegisterPage } from './components/Auth/RegisterPage';
+import { ResetPasswordPage } from './components/Auth/ResetPasswordPage';
 import { useAuth } from './contexts/AuthContext';
 import { ApplicationCard } from './components/KanbanBoard/ApplicationCard';
 import { KanbanBoard } from './components/KanbanBoard';
@@ -63,8 +65,10 @@ const navigation: Array<{ id: Page; label: string; icon: typeof LayoutDashboard 
 
 function App() {
   const { user, loading: authLoading, logout } = useAuth();
-  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
-  const [showAuth, setShowAuth] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'register' | 'forgot' | 'reset'>(() => (
+    window.location.pathname === '/reset-password' ? 'reset' : 'login'
+  ));
+  const [showAuth, setShowAuth] = useState(() => window.location.pathname === '/reset-password');
   const [page, setPage] = useState<Page>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -171,7 +175,10 @@ function App() {
         <button onClick={() => setShowAuth(false)} className="fixed left-5 top-5 z-50 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-bold text-slate-300 backdrop-blur hover:text-white">
           Retour à Telxia
         </button>
-        {authMode === 'login' ? <LoginPage onRegister={() => setAuthMode('register')} /> : <RegisterPage onLogin={() => setAuthMode('login')} />}
+        {authMode === 'login' && <LoginPage onRegister={() => setAuthMode('register')} onForgotPassword={() => setAuthMode('forgot')} />}
+        {authMode === 'register' && <RegisterPage onLogin={() => setAuthMode('login')} />}
+        {authMode === 'forgot' && <ForgotPasswordPage onLogin={() => setAuthMode('login')} />}
+        {authMode === 'reset' && <ResetPasswordPage onLogin={() => setAuthMode('login')} />}
       </div>
     );
   }
@@ -315,11 +322,11 @@ function App() {
       <aside className={`fixed inset-y-0 left-0 z-40 w-72 border-r border-white/10 bg-[#16252D]/95 p-4 backdrop-blur-2xl transition-transform lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="flex h-full flex-col">
           <div className="mb-7 flex items-center gap-3 px-2">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/[0.06]">
-              <img src="/logo-talexia.png" alt="Telxia" className="h-9 w-9 object-contain" />
+            <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-white/[0.08] shadow-xl shadow-brand-600/10">
+              <img src="/logo-talexia.png" alt="Telxia" className="h-14 w-14 object-contain" />
             </div>
             <div>
-              <h1 className="font-display text-2xl font-bold text-white">Telxia</h1>
+              <h1 className="font-display text-3xl font-bold text-white">Telxia</h1>
               <p className="text-xs font-semibold text-slate-500">Votre chemin vers la réussite.</p>
             </div>
           </div>

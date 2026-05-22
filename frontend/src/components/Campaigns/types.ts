@@ -36,6 +36,7 @@ export interface Campaign {
   body: string;
   status: CampaignStatus;
   send_delay_seconds: number;
+  scheduled_at: string | null;
   started_at: string | null;
   completed_at: string | null;
   cancelled_at: string | null;

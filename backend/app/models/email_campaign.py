@@ -43,6 +43,7 @@ class EmailCampaign(Base):
     body = Column(Text, nullable=False)
     status = Column(Enum(CampaignStatus, native_enum=False), default=CampaignStatus.DRAFT, nullable=False)
     send_delay_seconds = Column(Integer, default=60, nullable=False)
+    scheduled_at = Column(DateTime(timezone=True), nullable=True)
     started_at = Column(DateTime(timezone=True), nullable=True)
     completed_at = Column(DateTime(timezone=True), nullable=True)
     cancelled_at = Column(DateTime(timezone=True), nullable=True)

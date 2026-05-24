@@ -264,23 +264,7 @@ Fonctionnalités production :
 
 ---
 
-# 📸 Captures d’écran
 
-## Dashboard
-
-*Ajouter screenshot dashboard*
-
-## Campagnes Email
-
-*Ajouter screenshot campagnes*
-
-## Analytics
-
-*Ajouter screenshot analytics*
-
-## Documents
-
-*Ajouter screenshot documents*
 
 ---
 
